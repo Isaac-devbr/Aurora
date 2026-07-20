@@ -711,7 +711,7 @@
             dadosFinanceiros: {}
         };
 
-        const categoriesBase = [
+        const categoriasBase = [
             { id: "salario", nome: "Salário", desc: "Rendimento mensal", tipo: "entrada" },
             { id: "investimentos", nome: "Investimentos", desc: "Dividendos e rendimentos", tipo: "entrada" },
             { id: "freelance", nome: "Freelance / Extras", desc: "Trabalhos esporádicos", tipo: "entrada" },
@@ -768,7 +768,7 @@
             document.getElementById('btn-auth-alternar').innerText = modoCadastro ? "Já tem conta? Faça Login" : "Não tem uma conta? Cadastre-se";
         }
 
-        async function ejecutarAutenticacao(event) {
+        async function executarAutenticacao(event) {
             if(event) event.preventDefault();
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
@@ -946,7 +946,7 @@
             saldosOcultados = !saldosOcultados;
             const btn = document.getElementById('btn-alternar-visibilidade');
             btn.innerText = saldosOcultados ? "👁️ Mostrar" : "👁️ Ocultar";
-            processarLógicaFinanceiraMês();
+            atualizarCalculos();
         }
 
         function obterDadosMes(perfil, ano, mesIdx) {
@@ -979,7 +979,7 @@
                     let entradas = 0;
                     let saidas = 0;
 
-                    const todasCats = [...categoriesBase, ...(appState.categoriasCustom || [])];
+                    const todasCats = [...categoriasBase, ...(appState.categoriasCustom || [])];
                     todasCats.forEach(c => {
                         let v = parseFloat(dados.categorias[c.id] || 0);
                         if(c.tipo === 'entrada') entradas += v;
@@ -1002,39 +1002,27 @@
             return saldoAcumulado;
         }
 
-        /* --- NOVAS FUNÇÕES PARA MELHORAR DIGITAÇÃO --- */
-        function limparZeroInicial(inputElement) {
-            if (inputElement.value === "0,00" || inputElement.value === "0") {
-                inputElement.value = "";
-            }
-        }
+        /* --- MELHORIA DE DIGITAÇÃO: SEPARAÇÃO DE CÁLCULO E TELA --- */
 
-        function restaurarZeroSeVazio(inputElement, chave) {
-            if (inputElement.value.trim() === "") {
-                inputElement.value = "0,00";
-                salvarCategoriaInput(chave, "0,00");
-            }
-        }
-
+        // Função Master (Chama as duas abaixo quando muda o mês ou perfil)
         function processarLógicaFinanceiraMês() {
+            renderizarListasDeCategorias();
+            atualizarCalculos();
+        }
+
+        // 1. Apenas constrói os inputs e a tabela na tela (sem refazer ao digitar)
+        function renderizarListasDeCategorias() {
             const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
-            const saldoAnterior = calcularSaldoAnteriorMês(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
             
             const boxEntradas = document.getElementById('container-categorias-entradas');
             const boxSaidas = document.getElementById('container-categorias-saidas');
             boxEntradas.innerHTML = "";
             boxSaidas.innerHTML = "";
 
-            let receitasTotais = 0;
-            let despesasCategorias = 0;
-
-            const listaGeralCategorias = [...categoriesBase, ...(appState.categoriasCustom || [])];
+            const listaGeralCategorias = [...categoriasBase, ...(appState.categoriasCustom || [])];
 
             listaGeralCategorias.forEach(cat => {
                 let valSalvo = dadosMês.categorias[cat.id] || 0;
-                if(cat.tipo === 'entrada') receitasTotais += parseFloat(valSalvo);
-                else despesasCategorias += parseFloat(valSalvo);
-
                 let divLinha = document.createElement('div');
                 divLinha.className = "linha-categoria";
                 divLinha.innerHTML = `
@@ -1051,7 +1039,6 @@
 
             if (appState.possuiFilhos && appState.qtdFilhos > 0) {
                 let valEscola = dadosMês.categorias['escola'] || 0;
-                despesasCategorias += parseFloat(valEscola);
                 document.getElementById('cat-escola').value = formatarInput(valEscola);
             }
 
@@ -1059,12 +1046,36 @@
             tabelaCorpo.innerHTML = "";
 
             dadosMês.movimentacoes.forEach(mov => {
-                if(mov.tipo === 'entrada') receitasTotais += parseFloat(mov.valor);
-                else despesasCategorias += parseFloat(mov.valor);
-
                 let tr = document.createElement('tr');
                 tr.innerHTML = `<td>${mov.data}</td><td>${mov.descricao}</td><td>${mov.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td><td style="color:${mov.tipo === 'entrada' ? '#10b981':'#f43f5e'}">${simbolosMoedas[appState.moedaCorrente]} ${parseFloat(mov.valor).toFixed(2)}</td>`;
                 tabelaCorpo.appendChild(tr);
+            });
+        }
+
+        // 2. Apenas faz a matemática e atualiza os textos de Saldo (roda enquanto você digita)
+        function atualizarCalculos() {
+            const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+            const saldoAnterior = calcularSaldoAnteriorMês(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+            
+            let receitasTotais = 0;
+            let despesasCategorias = 0;
+
+            const listaGeralCategorias = [...categoriasBase, ...(appState.categoriasCustom || [])];
+
+            listaGeralCategorias.forEach(cat => {
+                let valSalvo = dadosMês.categorias[cat.id] || 0;
+                if(cat.tipo === 'entrada') receitasTotais += parseFloat(valSalvo);
+                else despesasCategorias += parseFloat(valSalvo);
+            });
+
+            if (appState.possuiFilhos && appState.qtdFilhos > 0) {
+                let valEscola = dadosMês.categorias['escola'] || 0;
+                despesasCategorias += parseFloat(valEscola);
+            }
+
+            dadosMês.movimentacoes.forEach(mov => {
+                if(mov.tipo === 'entrada') receitasTotais += parseFloat(mov.valor);
+                else despesasCategorias += parseFloat(mov.valor);
             });
 
             const novoSaldoFinal = saldoAnterior + receitasTotais - despesasCategorias;
@@ -1104,11 +1115,31 @@
             calcularConversorCambio();
         }
 
+        // Funções de Campo e Eventos de Digitação
+        function limparZeroInicial(inputElement) {
+            if (inputElement.value === "0,00" || inputElement.value === "0") {
+                inputElement.value = "";
+            }
+        }
+
+        function restaurarZeroSeVazio(inputElement, chave) {
+            if (inputElement.value.trim() === "") {
+                inputElement.value = "0,00";
+                salvarCategoriaInput(chave, "0,00");
+            } else {
+                // Formata o número certinho ao tirar o foco (Ex: digita "150", vira "150,00")
+                let valLimpo = parseFloat(inputElement.value.replace(/\./g, '').replace(',', '.')) || 0;
+                inputElement.value = formatarInput(valLimpo);
+            }
+        }
+
         function salvarCategoriaInput(chave, valorRaw) {
             let valorLimpo = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.')) || 0;
             const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
             dadosMês.categorias[chave] = valorLimpo;
-            processarLógicaFinanceiraMês();
+            
+            // Só atualiza os cálculos, NÃO reseta a tela (mantém o teclado aberto!)
+            atualizarCalculos(); 
             salvarDadosNoCloud();
         }
 
@@ -1162,7 +1193,7 @@
                 
                 let div = document.createElement('div');
                 div.className = "item-cambio";
-                divLinha = `<span>${m} (${simbolosMoedas[m]})</span><strong>${simbolosMoedas[m]} ${convertido.toFixed(2)}</strong>`;
+                let divLinha = `<span>${m} (${simbolosMoedas[m]})</span><strong>${simbolosMoedas[m]} ${convertido.toFixed(2)}</strong>`;
                 div.innerHTML = divLinha;
                 boxValores.appendChild(div);
             });
