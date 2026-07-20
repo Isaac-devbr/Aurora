@@ -7,35 +7,36 @@
     <style>
         /* --- DESIGN SISTEMA AURORA (DARK MODE CONTEXTUAL) --- */
         body {
-    background-color: #0b111e;
-    color: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    margin: 0;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center; /* Adicione esta linha */
-    align-items: center;    /* Adicione esta linha */
-    box-sizing: border-box;
-    min-height: 100vh;
-}
+            background-color: #0b111e;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Centraliza verticalmente no PC */
+            align-items: center;     /* Centraliza horizontalmente no PC */
+            gap: 16px;
+            box-sizing: border-box;
+            min-height: 100vh;
+        }
 
         .hidden { display: none !important; }
 
         /* --- TELA FLUXO AUTH / SETUP --- */
-       .tela-fluxo {
-    max-width: 400px;
-    width: 100%;
-    background: #111622;
-    padding: 30px 24px;
-    border-radius: 20px;
-    border: 1px solid #1e293b;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-sizing: border-box;
-}
+        .tela-fluxo {
+            max-width: 400px;
+            width: 100%;
+            background: #111622;
+            padding: 30px 24px;
+            border-radius: 20px;
+            border: 1px solid #1e293b;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-sizing: border-box;
+        }
 
         .input-login {
             background: #0b111e;
@@ -165,20 +166,19 @@
         }
 
         .btn-blue {
-    background: #0066ff;
-    color: white;
-    border: none;
-    padding: 8px 16px;       /* Reduzimos a altura e ajustamos a lateral */
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    position: relative;
-    z-index: 10;
-    
-    /* 👇 IMPEDE O BOTÃO DE ESTICAR E OCUPAR A TELA TODA */
-    width: max-content;      
-    margin: 0 auto;          /* Centraliza o botão menor na tela */
-}
+            background: #0066ff;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative; /* Prioridade de clique */
+            z-index: 10;        /* Camada acima de caixas invisíveis */
+            width: max-content;  /* Diminui o range lateral do clique */
+            margin: 0 auto;      /* Centraliza a caixa menor */
+        }
+
         /* --- BARRA HORIZONTAL DE MESES --- */
         .meses-scroll {
             display: flex;
@@ -453,6 +453,20 @@
             border-bottom: 1px solid #1e293b;
         }
         .item-cambio:last-child { border-bottom: none; }
+        
+        /* --- AJUSTE CURTO DO LINK DE ALTERNAR AUTH --- */
+        .btn-auth-alternar-style {
+            background: transparent;
+            border: none;
+            color: #a0aec0;
+            margin: 0 auto;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: underline;
+            display: inline-block;
+            width: max-content; /* Diminui o range de toque para o tamanho exato do texto */
+            padding: 4px;
+        }
     </style>
 
     <!-- CONFIGURAÇÃO DO FIREBASE -->
@@ -489,8 +503,8 @@
         <h2 id="auth-titulo" style="color: #0066ff; margin:0;">Entrar no Aurora</h2>
         <input type="email" id="auth-email" class="input-login" placeholder="Seu e-mail">
         <input type="password" id="auth-password" class="input-login" placeholder="Sua senha">
-        <button class="btn-blue" id="btn-auth-principal" onclick="executarAutenticacao()">Entrar</button>
-        <button class="btn-top-util" style="border:none; margin:auto;" id="btn-auth-alternar" onclick="alternarModoAuth()">Não tem uma conta? Cadastre-se</button>
+        <button class="btn-blue" id="btn-auth-principal" onclick="executarAutenticacao(event)">Entrar</button>
+        <button class="btn-auth-alternar-style" id="btn-auth-alternar" onclick="alternarModoAuth(event)">Não tem uma conta? Cadastre-se</button>
     </div>
 
     <!-- CONFIGURAÇÃO INICIAL DE FILHOS -->
@@ -683,7 +697,6 @@
         </div>
         <div>
             <span class="config-label">Selecione o Ano</span>
-            <!-- Removidas as tags manuais. Agora o JS popula dinamicamente -->
             <select class="select-custom" id="cfg-ano" style="width:100%; margin-top:6px;" onchange="mudarAnoCalendario(this.value)"></select>
         </div>
         <div>
@@ -740,13 +753,10 @@
             CHF: { BRL: 5.78, EUR: 1.03, GBP: 0.88, CHF: 1, USD: 1.12 }
         };
 
-        // GERAÇÃO AUTOMÁTICA DOS ANOS NO SELECT
         function inicializarSelectAnos() {
             const selectAno = document.getElementById('cfg-ano');
             selectAno.innerHTML = "";
             const anoAtualNum = new Date().getFullYear();
-            
-            // Cria um range fixo e confortável: 1 ano atrás até 10 anos no futuro
             const anoInicial = 2025; 
             const anoFinal = anoAtualNum + 10;
 
@@ -769,14 +779,16 @@
             document.getElementById('logo-menu-dropdown').style.display = 'none';
         });
 
-        function alternarModoAuth() {
+        function alternarModoAuth(event) {
+            if(event) event.preventDefault(); // Trava comportamento padrão no computador
             modoCadastro = !modoCadastro;
             document.getElementById('auth-titulo').innerText = modoCadastro ? "Cadastrar no Aurora" : "Entrar no Aurora";
             document.getElementById('btn-auth-principal').innerText = modoCadastro ? "Cadastrar" : "Entrar";
             document.getElementById('btn-auth-alternar').innerText = modoCadastro ? "Já tem conta? Faça Login" : "Não tem uma conta? Cadastre-se";
         }
 
-        async function ejecutarAutenticacao() {
+        async function executarAutenticacao(event) {
+            if(event) event.preventDefault(); // Trava comportamento padrão no computador
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             if (!email || !password) return alert("Preencha os campos!");
@@ -954,11 +966,8 @@
             return appState.dadosFinanceiros[perfil][ano][mesIdx];
         }
 
-        // LÓGICA DE CÁLCULO DE SALDO ANTERIOR ULTRA CONTÍNUA (IGNORA LACUNAS DE ANOS)
         function calcularSaldoAnteriorMês(perfilAlvo, anoAlvo, mesAlvoIdx) {
             let saldoAcumulado = 0;
-            
-            // Coleta todos os anos que existem no banco, junta com o ano atual selecionado e ordena
             let todosAnosValidos = Object.keys(appState.dadosFinanceiros[perfilAlvo] || {});
             if(!todosAnosValidos.includes(anoAlvo)) todosAnosValidos.push(anoAlvo);
             todosAnosValidos.sort((a,b) => parseInt(a) - parseInt(b));
