@@ -168,14 +168,17 @@
     background: #0066ff;
     color: white;
     border: none;
-    padding: 10px 14px;
+    padding: 8px 16px;       /* Reduzimos a altura e ajustamos a lateral */
     border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
-    position: relative; /* Adicione esta linha */
-    z-index: 10;        /* Adicione esta linha */
+    position: relative;
+    z-index: 10;
+    
+    /* 👇 IMPEDE O BOTÃO DE ESTICAR E OCUPAR A TELA TODA */
+    width: max-content;      
+    margin: 0 auto;          /* Centraliza o botão menor na tela */
 }
-
         /* --- BARRA HORIZONTAL DE MESES --- */
         .meses-scroll {
             display: flex;
