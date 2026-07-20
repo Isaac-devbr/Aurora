@@ -650,7 +650,7 @@
                 <div id="cat-box-filhos" class="hidden">
                     <div class="linha-categoria">
                         <div class="lbl-cat"><strong>Escola</strong><span id="txt-desc-filhos">Educação do(s) filho(s)</span></div>
-                        <input type="text" id="cat-escola" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('escola', this.value)">
+                        <input type="text" id="cat-escola" class="input-dinheiro" value="0,00" onfocus="limparZeroInicial(this)" onblur="restaurarZeroSeVazio(this, 'escola')" oninput="salvarCategoriaInput('escola', this.value)">
                     </div>
                 </div>
             </div>
@@ -711,7 +711,7 @@
             dadosFinanceiros: {}
         };
 
-        const categoriasBase = [
+        const categoriesBase = [
             { id: "salario", nome: "Salário", desc: "Rendimento mensal", tipo: "entrada" },
             { id: "investimentos", nome: "Investimentos", desc: "Dividendos e rendimentos", tipo: "entrada" },
             { id: "freelance", nome: "Freelance / Extras", desc: "Trabalhos esporádicos", tipo: "entrada" },
@@ -768,7 +768,7 @@
             document.getElementById('btn-auth-alternar').innerText = modoCadastro ? "Já tem conta? Faça Login" : "Não tem uma conta? Cadastre-se";
         }
 
-        async function executarAutenticacao(event) {
+        async function ejecutarAutenticacao(event) {
             if(event) event.preventDefault();
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
@@ -979,7 +979,7 @@
                     let entradas = 0;
                     let saidas = 0;
 
-                    const todasCats = [...categoriasBase, ...(appState.categoriasCustom || [])];
+                    const todasCats = [...categoriesBase, ...(appState.categoriasCustom || [])];
                     todasCats.forEach(c => {
                         let v = parseFloat(dados.categorias[c.id] || 0);
                         if(c.tipo === 'entrada') entradas += v;
@@ -1002,6 +1002,20 @@
             return saldoAcumulado;
         }
 
+        /* --- NOVAS FUNÇÕES PARA MELHORAR DIGITAÇÃO --- */
+        function limparZeroInicial(inputElement) {
+            if (inputElement.value === "0,00" || inputElement.value === "0") {
+                inputElement.value = "";
+            }
+        }
+
+        function restaurarZeroSeVazio(inputElement, chave) {
+            if (inputElement.value.trim() === "") {
+                inputElement.value = "0,00";
+                salvarCategoriaInput(chave, "0,00");
+            }
+        }
+
         function processarLógicaFinanceiraMês() {
             const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
             const saldoAnterior = calcularSaldoAnteriorMês(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
@@ -1014,7 +1028,7 @@
             let receitasTotais = 0;
             let despesasCategorias = 0;
 
-            const listaGeralCategorias = [...categoriasBase, ...(appState.categoriasCustom || [])];
+            const listaGeralCategorias = [...categoriesBase, ...(appState.categoriasCustom || [])];
 
             listaGeralCategorias.forEach(cat => {
                 let valSalvo = dadosMês.categorias[cat.id] || 0;
@@ -1025,7 +1039,10 @@
                 divLinha.className = "linha-categoria";
                 divLinha.innerHTML = `
                     <div class="lbl-cat"><strong>${cat.nome}</strong><span>${cat.desc}</span></div>
-                    <input type="text" class="input-dinheiro" value="${formatarInput(valSalvo)}" oninput="salvarCategoriaInput('${cat.id}', this.value)">
+                    <input type="text" class="input-dinheiro" value="${formatarInput(valSalvo)}" 
+                           onfocus="limparZeroInicial(this)" 
+                           onblur="restaurarZeroSeVazio(this, '${cat.id}')" 
+                           oninput="salvarCategoriaInput('${cat.id}', this.value)">
                 `;
 
                 if(cat.tipo === 'entrada') boxEntradas.appendChild(divLinha);
