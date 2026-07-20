@@ -14,8 +14,8 @@
             padding: 16px;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centraliza verticalmente no PC */
-            align-items: center;     /* Centraliza horizontalmente no PC */
+            justify-content: center;
+            align-items: center;
             gap: 16px;
             box-sizing: border-box;
             min-height: 100vh;
@@ -173,10 +173,10 @@
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
-            position: relative; /* Prioridade de clique */
-            z-index: 10;        /* Camada acima de caixas invisíveis */
-            width: max-content;  /* Diminui o range lateral do clique */
-            margin: 0 auto;      /* Centraliza a caixa menor */
+            position: relative;
+            z-index: 10;
+            width: max-content;
+            margin: 0 auto;
         }
 
         /* --- BARRA HORIZONTAL DE MESES --- */
@@ -258,7 +258,7 @@
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background: conic-gradient(#10b981 0% 50%, #f43f5e 50% 100%);
+            background: conic-gradient(#1e293b 0% 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -454,7 +454,6 @@
         }
         .item-cambio:last-child { border-bottom: none; }
         
-        /* --- AJUSTE CURTO DO LINK DE ALTERNAR AUTH --- */
         .btn-auth-alternar-style {
             background: transparent;
             border: none;
@@ -464,7 +463,7 @@
             font-size: 0.9rem;
             text-decoration: underline;
             display: inline-block;
-            width: max-content; /* Diminui o range de toque para o tamanho exato do texto */
+            width: max-content;
             padding: 4px;
         }
     </style>
@@ -636,47 +635,16 @@
         <!-- ABA 3: CATEGORIAS DO MÊS -->
         <div id="view-categorias" class="sub-view-item hidden">
             <div class="secao-card">
-                <h3>📝 Categorias do Mês</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #1e293b; padding-bottom:8px;">
+                    <h3 style="margin:0;">📝 Categorias do Mês</h3>
+                    <button class="btn-blue" style="font-size:0.8rem; padding:6px 10px;" onclick="janelaCriarCategoria()">+ Nova Categoria</button>
+                </div>
                 
                 <span style="color:#10b981; font-size:0.8rem; font-weight:bold;">ENTRADAS</span>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Salário</strong><span>Rendimento mensal</span></div>
-                    <input type="text" id="cat-salario" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('salario', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Investimentos</strong><span>Dividendos e rendimentos</span></div>
-                    <input type="text" id="cat-investimentos" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('investimentos', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Freelance / Extras</strong><span>Trabalhos esporádicos</span></div>
-                    <input type="text" id="cat-freelance" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('freelance', this.value)">
-                </div>
+                <div id="container-categorias-entradas"></div>
 
                 <span style="color:#f43f5e; font-size:0.8rem; font-weight:bold; margin-top:8px; display:block;">SAÍDAS</span>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Mercado</strong><span>Compras do mês</span></div>
-                    <input type="text" id="cat-mercado" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('mercado', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Contas Fixas</strong><span>Água, Luz, Aluguel</span></div>
-                    <input type="text" id="cat-contas" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('contas', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Alimentação fora</strong><span>Restaurantes e Delivery</span></div>
-                    <input type="text" id="cat-delivery" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('delivery', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Lazer e Viagens</strong><span>Cinema, passeios e férias</span></div>
-                    <input type="text" id="cat-lazer" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('lazer', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Streaming</strong><span>Netflix, Spotify, etc.</span></div>
-                    <input type="text" id="cat-streaming" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('streaming', this.value)">
-                </div>
-                <div class="linha-categoria">
-                    <div class="lbl-cat"><strong>Transporte</strong><span>Uber, ônibus ou metrô</span></div>
-                    <input type="text" id="cat-transporte" class="input-dinheiro" value="0,00" oninput="salvarCategoriaInput('transporte', this.value)">
-                </div>
+                <div id="container-categorias-saidas"></div>
 
                 <!-- CATEGORIA OBRIGATÓRIA DINÂMICA DE FILHOS -->
                 <div id="cat-box-filhos" class="hidden">
@@ -739,8 +707,21 @@
             perfisCadastrados: ["Principal"],
             possuiFilhos: undefined,
             qtdFilhos: 0,
+            categoriasCustom: [],
             dadosFinanceiros: {}
         };
+
+        const categoriasBase = [
+            { id: "salario", nome: "Salário", desc: "Rendimento mensal", tipo: "entrada" },
+            { id: "investimentos", nome: "Investimentos", desc: "Dividendos e rendimentos", tipo: "entrada" },
+            { id: "freelance", nome: "Freelance / Extras", desc: "Trabalhos esporádicos", tipo: "entrada" },
+            { id: "mercado", nome: "Mercado", desc: "Compras do mês", tipo: "saida" },
+            { id: "contas", nome: "Contas Fixas", desc: "Água, Luz, Aluguel", tipo: "saida" },
+            { id: "delivery", nome: "Alimentação fora", desc: "Restaurantes e Delivery", tipo: "saida" },
+            { id: "lazer", nome: "Lazer e Viagens", desc: "Cinema, passeios e férias", tipo: "saida" },
+            { id: "streaming", nome: "Streaming", desc: "Netflix, Spotify, etc.", tipo: "saida" },
+            { id: "transporte", nome: "Transporte", desc: "Uber, ônibus ou metrô", tipo: "saida" }
+        ];
 
         const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const simbolosMoedas = { BRL: "R$", USD: "$", EUR: "€", GBP: "£", CHF: "CHF" };
@@ -780,7 +761,7 @@
         });
 
         function alternarModoAuth(event) {
-            if(event) event.preventDefault(); // Trava comportamento padrão no computador
+            if(event) event.preventDefault();
             modoCadastro = !modoCadastro;
             document.getElementById('auth-titulo').innerText = modoCadastro ? "Cadastrar no Aurora" : "Entrar no Aurora";
             document.getElementById('btn-auth-principal').innerText = modoCadastro ? "Cadastrar" : "Entrar";
@@ -788,7 +769,7 @@
         }
 
         async function executarAutenticacao(event) {
-            if(event) event.preventDefault(); // Trava comportamento padrão no computador
+            if(event) event.preventDefault();
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             if (!email || !password) return alert("Preencha os campos!");
@@ -818,6 +799,7 @@
                                 appState = { ...appState, ...docSnap.data() };
                                 if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
                                 if(!appState.perfilCorrente) appState.perfilCorrente = "Principal";
+                                if(!appState.categoriasCustom) appState.categoriasCustom = [];
                                 atualizarSelectPerfis();
                                 inicializarSelectAnos();
                                 renderizarMesesBotoes();
@@ -862,10 +844,24 @@
             document.getElementById('tela-filhos').classList.add('hidden');
             appState.perfisCadastrados = ["Principal"];
             appState.perfilCorrente = "Principal";
+            appState.categoriasCustom = [];
             atualizarSelectPerfis();
             inicializarSelectAnos();
             renderizarMesesBotoes();
             abrirAppPrincipal();
+            salvarDadosNoCloud();
+        }
+
+        function janelaCriarCategoria() {
+            const nome = prompt("Digite o nome da nova categoria:");
+            if(!nome || nome.trim() === "") return;
+            const desc = prompt("Digite uma breve descrição (opcional):") || "";
+            const tipo = confirm("Pressione OK se for uma categoria de ENTRADA (Receita).\nClique em Cancelar se for uma SAÍDA (Despesa).") ? "entrada" : "saida";
+            
+            const idUnico = "custom_" + Date.now();
+            appState.categoriasCustom.push({ id: idUnico, nome: nome.trim(), desc: desc.trim(), tipo });
+            
+            processarLógicaFinanceiraMês();
             salvarDadosNoCloud();
         }
 
@@ -959,7 +955,7 @@
             if (!appState.dadosFinanceiros[perfil][ano]) appState.dadosFinanceiros[perfil][ano] = {};
             if (!appState.dadosFinanceiros[perfil][ano][mesIdx]) {
                 appState.dadosFinanceiros[perfil][ano][mesIdx] = {
-                    categorias: { salario: 0, investimentos: 0, freelance: 0, mercado: 0, contas: 0, delivery: 0, lazer: 0, streaming: 0, transporte: 0, escola: 0 },
+                    categorias: {},
                     movimentacoes: []
                 };
             }
@@ -980,16 +976,26 @@
                     if (!appState.dadosFinanceiros[perfilAlvo][ano] || !appState.dadosFinanceiros[perfilAlvo][ano][m]) continue;
                     let dados = appState.dadosFinanceiros[perfilAlvo][ano][m];
                     
-                    let entradas = parseFloat(dados.categorias.salario || 0) + parseFloat(dados.categorias.investimentos || 0) + parseFloat(dados.categorias.freelance || 0);
-                    let saidas = parseFloat(dados.categorias.mercado || 0) + parseFloat(dados.categorias.contas || 0) + 
-                                 parseFloat(dados.categorias.delivery || 0) + parseFloat(dados.categorias.lazer || 0) + 
-                                 parseFloat(dados.categorias.streaming || 0) + parseFloat(dados.categorias.transporte || 0) + 
-                                 (appState.possuiFilhos ? parseFloat(dados.categorias.escola || 0) : 0);
+                    let entradas = 0;
+                    let saidas = 0;
+
+                    const todasCats = [...categoriasBase, ...(appState.categoriasCustom || [])];
+                    todasCats.forEach(c => {
+                        let v = parseFloat(dados.categorias[c.id] || 0);
+                        if(c.tipo === 'entrada') entradas += v;
+                        else saidas += v;
+                    });
+
+                    if(appState.possuiFilhos) {
+                        entradas += 0;
+                        saidas += parseFloat(dados.categorias['escola'] || 0);
+                    }
                     
                     dados.movimentacoes.forEach(mov => {
                         if(mov.tipo === 'entrada') entradas += parseFloat(mov.valor);
                         else saidas += parseFloat(mov.valor);
                     });
+                    
                     saldoAcumulado += (entradas - saidas);
                 }
             }
@@ -1000,26 +1006,37 @@
             const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
             const saldoAnterior = calcularSaldoAnteriorMês(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
             
-            document.getElementById('cat-salario').value = formatarInput(dadosMês.categorias.salario);
-            document.getElementById('cat-investimentos').value = formatarInput(dadosMês.categorias.investimentos);
-            document.getElementById('cat-freelance').value = formatarInput(dadosMês.categorias.freelance);
-            document.getElementById('cat-mercado').value = formatarInput(dadosMês.categorias.mercado);
-            document.getElementById('cat-contas').value = formatarInput(dadosMês.categorias.contas);
-            document.getElementById('cat-delivery').value = formatarInput(dadosMês.categorias.delivery);
-            document.getElementById('cat-lazer').value = formatarInput(dadosMês.categorias.lazer);
-            document.getElementById('cat-streaming').value = formatarInput(dadosMês.categorias.streaming);
-            document.getElementById('cat-transporte').value = formatarInput(dadosMês.categorias.transporte);
-            document.getElementById('cat-escola').value = formatarInput(dadosMês.categorias.escola);
+            const boxEntradas = document.getElementById('container-categorias-entradas');
+            const boxSaidas = document.getElementById('container-categorias-saidas');
+            boxEntradas.innerHTML = "";
+            boxSaidas.innerHTML = "";
 
-            let despesasCategorias = parseFloat(dadosMês.categorias.mercado || 0) + 
-                                     parseFloat(dadosMês.categorias.contas || 0) + 
-                                     parseFloat(dadosMês.categorias.delivery || 0) + 
-                                     parseFloat(dadosMês.categorias.lazer || 0) + 
-                                     parseFloat(dadosMês.categorias.streaming || 0) + 
-                                     parseFloat(dadosMês.categorias.transporte || 0) + 
-                                     (appState.possuiFilhos ? parseFloat(dadosMês.categorias.escola || 0) : 0);
-            
-            let receitasTotais = parseFloat(dadosMês.categorias.salario || 0) + parseFloat(dadosMês.categorias.investimentos || 0) + parseFloat(dadosMês.categorias.freelance || 0);
+            let receitasTotais = 0;
+            let despesasCategorias = 0;
+
+            const listaGeralCategorias = [...categoriasBase, ...(appState.categoriasCustom || [])];
+
+            listaGeralCategorias.forEach(cat => {
+                let valSalvo = dadosMês.categorias[cat.id] || 0;
+                if(cat.tipo === 'entrada') receitasTotais += parseFloat(valSalvo);
+                else despesasCategorias += parseFloat(valSalvo);
+
+                let divLinha = document.createElement('div');
+                divLinha.className = "linha-categoria";
+                divLinha.innerHTML = `
+                    <div class="lbl-cat"><strong>${cat.nome}</strong><span>${cat.desc}</span></div>
+                    <input type="text" class="input-dinheiro" value="${formatarInput(valSalvo)}" oninput="salvarCategoriaInput('${cat.id}', this.value)">
+                `;
+
+                if(cat.tipo === 'entrada') boxEntradas.appendChild(divLinha);
+                else boxSaidas.appendChild(divLinha);
+            });
+
+            if (appState.possuiFilhos && appState.qtdFilhos > 0) {
+                let valEscola = dadosMês.categorias['escola'] || 0;
+                despesasCategorias += parseFloat(valEscola);
+                document.getElementById('cat-escola').value = formatarInput(valEscola);
+            }
 
             const tabelaCorpo = document.getElementById('tabela-corpo-historico');
             tabelaCorpo.innerHTML = "";
@@ -1128,7 +1145,8 @@
                 
                 let div = document.createElement('div');
                 div.className = "item-cambio";
-                div.innerHTML = `<span>${m} (${simbolosMoedas[m]})</span><strong>${simbolosMoedas[m]} ${convertido.toFixed(2)}</strong>`;
+                divLinha = `<span>${m} (${simbolosMoedas[m]})</span><strong>${simbolosMoedas[m]} ${convertido.toFixed(2)}</strong>`;
+                div.innerHTML = divLinha;
                 boxValores.appendChild(div);
             });
         }
