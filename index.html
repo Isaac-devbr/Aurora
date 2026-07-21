@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora - Finanças com Clareza</title>
+
+    <!-- BIBLIOTECA PARA EXPORTAR EXCEL -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* --- DESIGN SISTEMA AURORA --- */
+        :root {
+            --bg-body: #0b111e;
+            --bg-card: #111622;
+            --bg-input: #0b111e;
+            --border-color: #1e293b;
+            --text-main: #ffffff;
+            --text-muted: #a0aec0;
+        }
+
+        body.tema-claro {
+            --bg-body: #ffffff;
+            --bg-card: #f8fafc;
+            --bg-input: #ffffff;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-sizing: border-box;
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .hidden { display: none !important; }
+
+        /* --- TELA FLUXO AUTH / SETUP --- */
+        .tela-fluxo {
+            max-width: 400px;
+            width: 100%;
+            margin: auto;
+            background: var(--bg-card);
+            padding: 30px 24px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-sizing: border-box;
+        }
+
+        .input-login {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .opcoes-filhos {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-opcao {
+            flex: 1;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .btn-opcao.selecionado {
+            background: #0066ff;
+            border-color: #0066ff;
+            color: #ffffff;
+        }
+
+        /* --- HEADER PRINCIPAL --- */
+        #app-container {
+            max-width: 520px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .app-title-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .logo-box {
+            background: #1e3a8a;
+            color: #3b82f6;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .logo-dropdown {
+            position: absolute;
+            top: 45px;
+            left: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10;
+            width: 160px;
+            display: none;
+        }
+
+        .logo-dropdown button {
+            background: transparent;
+            border: none;
+            color: #f43f5e;
+            padding: 12px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .header-utils {
+            margin-left: auto;
+        }
+
+        .btn-top-util {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* --- SUBHEADER PERFIL E OPÇÕES --- */
+        .perfil-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .select-custom {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            outline: none;
+            flex: 1;
+        }
+
+        .btn-blue {
+            background: #0066ff;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-green {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --- BARRA HORIZONTAL DE MESES --- */
+        .meses-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .meses-scroll::-webkit-scrollbar { height: 4px; }
+        .meses-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+        .btn-mes {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+
+        .btn-mes.ativo {
+            background: #0066ff;
+            color: white;
+            border-color: #0066ff;
+        }
+
+        /* --- CARDS DE VALORES --- */
+        .card-visao-geral {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .card-header-row {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .valores-grid {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .v-box span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .v-box var {
+            font-style: normal;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #0066ff;
+        }
+
+        /* --- GRÁFICO ROSCA --- */
+        .card-grafico {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .circle-progress {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(#10b981 0% 50%, #f43f5e 50% 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .circle-inner {
+            background: var(--bg-card);
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            z-index: 2;
+        }
+
+        .circle-inner var {
+            font-style: normal;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: var(--text-main);
+            margin-top: 2px;
+        }
+
+        .grafico-legendas {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .legenda-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot.verde { background: #10b981; }
+        .dot.vermelho { background: #f43f5e; }
+
+        .legenda-item span var {
+            font-style: normal;
+            display: block;
+            color: var(--text-main);
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        /* --- ABAS SUB-NAVEGACAO --- */
+        .sub-abas {
+            display: flex;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 4px;
+            border-radius: 10px;
+            gap: 4px;
+            overflow-x: auto;
+        }
+
+        .btn-sub-aba {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 8px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .btn-sub-aba.ativa {
+            background: var(--border-color);
+            color: #0066ff;
+        }
+
+        /* --- COMPONENTES DAS PÁGINAS INTERNAS --- */
+        .secao-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .secao-card h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .linha-categoria {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border-color);
+            gap: 8px;
+        }
+        .linha-categoria:last-child { border-bottom: none; }
+
+        .lbl-cat {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        .lbl-cat strong { font-size: 0.95rem; }
+        .lbl-cat span { font-size: 0.75rem; color: var(--text-muted); }
+
+        .cat-acoes {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-excluir-cat {
+            background: transparent;
+            border: none;
+            color: #f43f5e;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .btn-excluir-cat:hover { opacity: 1; }
+
+        .input-dinheiro {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: right;
+            width: 90px;
+            font-weight: bold;
+            outline: none;
+        }
+
+        /* --- PLANILHA / TABELA DE HISTÓRICO --- */
+        .tabela-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { color: var(--text-muted); font-weight: normal; }
+
+        /* --- SIDEBAR DE CONFIGURAÇÕES (COM SCROLL) --- */
+        .sidebar-config {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100vh;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border-color);
+            box-shadow: -5px 0 25px rgba(0,0,0,0.3);
+            z-index: 100;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar-config::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-config::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .config-label {
+            font-size: 0.8rem;
+            color: #0066ff;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .conversor-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .item-cambio {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .item-cambio:last-child { border-bottom: none; }
+    </style>
+
+    <!-- CONFIGURAÇÃO DO FIREBASE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCp_zRDAvgQIAs0yWlN8_zogvRAoIaZknc",
+            authDomain: "aurora-1fe32.firebaseapp.com",
+            projectId: "aurora-1fe32",
+            storageBucket: "aurora-1fe32.firebasestorage.app",
+            messagingSenderId: "954720527805",
+            appId: "1:954720527805:web:281087a7b23b54e3ae9ed4",
+            measurementId: "G-SKX6K3BBP9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.authEnv = { 
+            auth, db, doc, setDoc, getDoc, signOut,
+            criarUsuario: createUserWithEmailAndPassword,
+            fazerLogin: signInWithEmailAndPassword
+        };
+    </script>
+</head>
+<body>
+
+    <!-- TELA DE AUTENTICAÇÃO -->
+    <div id="tela-autenticacao" class="tela-fluxo">
+        <h2 id="auth-titulo" style="color: #0066ff; margin:0;">Entrar no Aurora</h2>
+        <input type="email" id="auth-email" class="input-login" placeholder="Seu e-mail">
+        <input type="password" id="auth-password" class="input-login" placeholder="Sua senha">
+        <button class="btn-blue" id="btn-auth-principal" onclick="executarAutenticacao()">Entrar</button>
+        <button class="btn-top-util" style="border:none; margin:auto;" id="btn-auth-alternar" onclick="alternarModoAuth()">Não tem uma conta? Cadastre-se</button>
+    </div>
+
+    <!-- TELA DE SETUP INICIAL: PERGUNTA SOBRE FILHOS -->
+    <div id="tela-filhos" class="tela-fluxo hidden">
+        <h2 id="txt-setup-titulo">Personalize seu Horizonte</h2>
+        <p id="txt-setup-sub" style="color: var(--text-muted); font-size: 0.9rem;">Você possui filhos?</p>
+        
+        <div class="opcoes-filhos">
+            <button class="btn-opcao" id="opt-filhos-sim" onclick="selecionarOpcaoFilhos(true)">Sim</button>
+            <button class="btn-opcao" id="opt-filhos-nao" onclick="selecionarOpcaoFilhos(false)">Não</button>
+        </div>
+        
+        <div id="box-quantidade-filhos" class="hidden" style="width: 100%; margin-top: 8px;">
+            <p id="txt-qtd-filhos-lbl" style="font-size: 0.85rem; margin-bottom: 8px; text-align: left; color: var(--text-muted);">Quantos filhos você tem?</p>
+            <input type="number" id="input-qtd-filhos" class="input-login" min="1" placeholder="Ex: 2">
+        </div>
+
+        <button class="btn-blue" id="btn-concluir-setup" style="margin-top: 12px;" onclick="concluirSetupInicial()">Concluir Configuração</button>
+    </div>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div id="app-container" class="hidden">
+        <header>
+            <div class="app-title-wrapper" onclick="toggleLogoDropdown(event)">
+                <div class="logo-box">Α</div>
+                <h2 style="margin:0; font-size:1.3rem;">Aurora</h2>
+                <div id="logo-menu-dropdown" class="logo-dropdown">
+                    <button id="btn-menu-logout" onclick="fazerLogout()">Ir para tela inicial</button>
+                </div>
+            </div>
+            <div class="header-utils">
+                <button class="btn-top-util" id="btn-cfg-header" onclick="alternarSidebar(true)">⚙️ Configurações</button>
+            </div>
+        </header>
+
+        <!-- SELEÇÃO DE PERFIL -->
+        <div class="perfil-row">
+            <select class="select-custom" id="select-perfil-usuario" onchange="alterarPerfilAtivo(this.value)">
+                <option value="Principal">Principal (Padrão)</option>
+            </select>
+            <button class="btn-blue" id="btn-novo-perfil" onclick="criarNovoPerfil()">+ Novo Perfil</button>
+        </div>
+
+        <!-- SCROLL DOS MESES -->
+        <div class="meses-scroll" id="container-meses-botoes"></div>
+
+        <!-- SUB-NAVEGAÇÃO DAS ABAS -->
+        <div class="sub-abas">
+            <button class="btn-sub-aba ativa" id="sub-aba-1" onclick="mudarSubAba(1)">📊 Visão Geral</button>
+            <button class="btn-sub-aba" id="sub-aba-2" onclick="mudarSubAba(2)">📋 Planilhas</button>
+            <button class="btn-sub-aba" id="sub-aba-3" onclick="mudarSubAba(3)">📂 Categorias</button>
+            <button class="btn-sub-aba" id="sub-aba-4" onclick="mudarSubAba(4)">📅 Histórico Anual</button>
+        </div>
+
+        <!-- ABA 1: VISÃO GERAL -->
+        <div id="view-visao-geral" class="sub-view-item">
+            <div class="card-visao-geral">
+                <div class="card-header-row">
+                    <span id="lbl-visao-geral">Visão Geral</span>
+                    <span id="btn-alternar-visibilidade" style="color:#0066ff; cursor:pointer;" onclick="alternarVisibilidadeSaldos()">👁️ Ocultar</span>
+                </div>
+                <div class="valores-grid">
+                    <div class="v-box">
+                        <span id="lbl-saldo-anterior">SALDO ANTERIOR</span>
+                        <var id="txt-saldo-anterior" style="color: var(--text-muted);">R$ 0,00</var>
+                    </div>
+                    <div class="v-box" style="text-align: right;">
+                        <span id="lbl-novo-saldo-final">NOVO SALDO FINAL</span>
+                        <var id="txt-novo-saldo-final">R$ 0,00</var>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-grafico" style="margin-top:12px;">
+                <div class="circle-progress" id="grafico-circular">
+                    <div class="circle-inner">
+                        <span id="lbl-balanco-grafico">Balanço</span>
+                        <var id="txt-grafico-sobrou">R$ 0,00</var>
+                        <span id="txt-grafico-porcentagem">0%</span>
+                    </div>
+                </div>
+                <div class="grafico-legendas">
+                    <div class="legenda-item">
+                        <div class="dot verde"></div>
+                        <span><span id="lbl-entradas-legenda">Entradas</span> <var id="legenda-sobrou-porcento">0%</var></span>
+                    </div>
+                    <div class="legenda-item">
+                        <div class="dot vermelho"></div>
+                        <span><span id="lbl-saidas-legenda">Saídas</span> <var id="legenda-despesas-porcento">0%</var></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="secao-card" style="margin-top:12px;">
+                <h3 id="lbl-movimentacao-saldos">💸 Movimentação de Saldos</h3>
+                <div style="display: flex; gap:8px;">
+                    <input type="date" id="mov-data" class="select-custom" style="flex:unset; width:130px;">
+                    <select id="mov-tipo" class="select-custom">
+                        <option value="entrada" id="opt-mov-entrada">Entrada (+)</option>
+                        <option value="saida" id="opt-mov-saida">Saída (-)</option>
+                    </select>
+                </div>
+                <input type="text" id="mov-descricao" class="input-login" placeholder="Descrição">
+                <div style="display:flex; gap:8px;">
+                    <input type="number" id="mov-valor" class="input-login" placeholder="Valor (0.00)">
+                    <button class="btn-blue" id="btn-lancar-mov" onclick="adicionarMovimentacao()">Lançar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 2: PLANILHAS (EXTRATO) -->
+        <div id="view-planilhas" class="sub-view-item hidden">
+            <div class="secao-card">
+                <h3>
+                    <span id="lbl-historico-lancamentos">📑 Histórico de Lançamentos</span>
+                    <button class="btn-green" id="btn-exportar-excel" style="font-size: 0.8rem; padding: 6px 10px;" onclick="exportarExcel()">📥 Exportar Excel</button>
+                </h3>
+                
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <select id="filtro-visualizacao-historico" class="select-custom" onchange="processarLógicaFinanceiraMês()">
+                        <option value="mes" id="opt-filtro-mes">Movimentação do Mês Ativo</option>
+                        <option value="ano" id="opt-filtro-ano">Movimentação Anual (Ano Todo)</option>
+                    </select>
+                </div>
+
+                <div class="tabela-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th id="th-data">Data</th>
+                                <th id="th-descricao">Descrição</th>
+                                <th id="th-tipo">Tipo</th>
+                                <th id="th-valor">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-corpo-historico"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 3: CATEGORIAS -->
+        <div id="view-categorias" class="sub-view-item hidden">
+            <div class="secao-card">
+                <h3 id="lbl-criar-categoria">➕ Criar Nova Categoria</h3>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="nova-cat-nome" class="input-login" placeholder="Nome da Categoria">
+                    <select id="nova-cat-tipo" class="select-custom" style="width: 120px;">
+                        <option value="saida" id="opt-cat-saida">Saída (-)</option>
+                        <option value="entrada" id="opt-cat-entrada">Entrada (+)</option>
+                    </select>
+                </div>
+                <button class="btn-blue" id="btn-add-categoria" onclick="criarNovaCategoriaPersonalizada()">Adicionar Categoria</button>
+            </div>
+
+            <div class="secao-card" style="margin-top: 12px;">
+                <h3 id="lbl-cat-mes">📝 Categorias do Mês</h3>
+                
+                <span id="lbl-sub-entradas" style="color:#10b981; font-size:0.8rem; font-weight:bold;">ENTRADAS</span>
+                <div id="container-categorias-entradas"></div>
+
+                <span id="lbl-sub-saidas" style="color:#f43f5e; font-size:0.8rem; font-weight:bold; margin-top:12px; display:block;">SAÍDAS</span>
+                <div id="container-categorias-saidas"></div>
+            </div>
+        </div>
+
+        <!-- ABA 4: HISTÓRICO ANUAL MÊS A MÊS -->
+        <div id="view-historico-anual" class="sub-view-item hidden">
+            <div class="secao-card">
+                <h3><span id="lbl-resumo-anual">📅 Resumo Anual</span> (<span id="lbl-ano-historico-anual">2026</span>)</h3>
+                <p id="lbl-desc-resumo-anual" style="font-size: 0.8rem; color: var(--text-muted); margin:0;">Acompanhe o total de entradas, saídas e o balanço consolidado de cada mês do ano.</p>
+
+                <div class="tabela-wrapper" style="margin-top: 8px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th id="th-mes">Mês</th>
+                                <th id="th-entradas" style="color: #10b981;">Entradas</th>
+                                <th id="th-saidas" style="color: #f43f5e;">Saídas</th>
+                                <th id="th-resultado">Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-corpo-resumo-anual"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR CONFIGURAÇÕES (COM SCROLL & INTEGRAÇÃO DIRETA AO BACEN) -->
+    <div id="sidebar-config" class="sidebar-config hidden">
+        <div class="sidebar-header">
+            <h3 id="lbl-cfg-titulo" style="margin:0;">Configurações</h3>
+            <button class="btn-top-util" onclick="alternarSidebar(false)">✕</button>
+        </div>
+        <div>
+            <span class="config-label" id="lbl-cfg-idioma">Idioma / Language</span>
+            <select class="select-custom" id="cfg-idioma" style="width:100%; margin-top:6px;" onchange="alterarIdiomaSistema(this.value)">
+                <option value="pt">Português</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="it">Italiano</option>
+                <option value="ar">العربية (Árabe)</option>
+            </select>
+        </div>
+        <div>
+            <span class="config-label" id="lbl-cfg-aparencia">Aparência (Tema)</span>
+            <select class="select-custom" id="cfg-tema" style="width:100%; margin-top:6px;" onchange="alterarTemaVisual(this.value)">
+                <option value="escuro" id="opt-tema-escuro">Escuro (Padrão)</option>
+                <option value="claro" id="opt-tema-claro">Claro</option>
+            </select>
+        </div>
+        <div>
+            <span class="config-label" id="lbl-cfg-ano">Selecione o Ano</span>
+            <select class="select-custom" id="cfg-ano" style="width:100%; margin-top:6px;" onchange="mudarAnoCalendario(this.value)"></select>
+        </div>
+        <div>
+            <span class="config-label" id="lbl-cfg-moeda">Moeda Principal</span>
+            <select class="select-custom" id="cfg-moeda" style="width:100%; margin-top:6px;" onchange="alterarMoedaBase(this.value)">
+                <option value="BRL">Real (BRL)</option>
+                <option value="USD">Dólar (USD)</option>
+                <option value="EUR">Euro (EUR)</option>
+                <option value="GBP">Libra (GBP)</option>
+                <option value="CHF">Franco Suíço (CHF)</option>
+            </select>
+        </div>
+        <div>
+            <span class="config-label" id="lbl-cfg-conversor">Conversor PTAX (Banco Central)</span>
+            <div class="conversor-box" style="margin-top:6px;">
+                <input type="number" id="conv-valor-base" class="input-login" value="1.00" oninput="calcularConversorCambio()">
+                <select class="select-custom" id="conv-moeda-origem" onchange="calcularConversorCambio()">
+                    <option value="USD">De: Dólar (USD)</option>
+                    <option value="BRL">De: Real (BRL)</option>
+                    <option value="EUR">De: Euro (EUR)</option>
+                    <option value="GBP">De: Libra (GBP)</option>
+                    <option value="CHF">De: Franco Suíço (CHF)</option>
+                </select>
+                <div id="lista-cambio-valores" style="margin-top:8px;">
+                    <div style="font-size:0.8rem; color:var(--text-muted); text-align:center;">Carregando dados oficiais do BACEN...</div>
+                </div>
+            </div>
+        </div>
+        <button class="btn-top-util" id="btn-sair-conta" style="color:#f43f5e; border-color:#f43f5e; margin-top:auto;" onclick="fazerLogout()">Sair da Conta 🚪</button>
+    </div>
+
+    <script>
+        let modoCadastro = false;
+        let usuarioAtualId = null;
+        let saldosOcultados = false;
+        
+        // DICIONÁRIO MULTI-IDIOMAS
+        const TRADUCOES = {
+            pt: {
+                meses: ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"],
+                authEntrar: "Entrar no Aurora", authCadastrar: "Cadastrar no Aurora",
+                btnEntrar: "Entrar", btnCadastrar: "Cadastrar",
+                linkCadastrar: "Não tem uma conta? Cadastre-se", linkEntrar: "Já tem conta? Faça Login",
+                setupTitulo: "Personalize seu Horizonte", setupSub: "Você possui filhos?",
+                optSim: "Sim", optNao: "Não", qtdFilhosLbl: "Quantos filhos você tem?",
+                btnConcluirSetup: "Concluir Configuração", logoutMenu: "Ir para tela inicial",
+                btnCfgHeader: "⚙️ Configurações", btnNovoPerfil: "+ Novo Perfil",
+                subAba1: "📊 Visão Geral", subAba2: "📋 Planilhas", subAba3: "📂 Categorias", subAba4: "📅 Histórico Anual",
+                lblVisaoGeral: "Visão Geral", btnOcultar: "👁️ Ocultar", btnMostrar: "👁️ Mostrar",
+                lblSaldoAnterior: "SALDO ANTERIOR", lblNovoSaldoFinal: "NOVO SALDO FINAL",
+                lblBalancoGrafico: "Balanço", lblEntradasLegenda: "Entradas", lblSaidasLegenda: "Saídas",
+                lblMovimentacaoSaldos: "💸 Movimentação de Saldos", optMovEntrada: "Entrada (+)", optMovSaida: "Saída (-)",
+                phDescricao: "Descrição", phValor: "Valor (0.00)", btnLancarMov: "Lançar",
+                lblHistoricoLancamentos: "📑 Histórico de Lançamentos", btnExportarExcel: "📥 Exportar Excel",
+                optFiltroMes: "Movimentação do Mês Ativo", optFiltroAno: "Movimentação Anual (Ano Todo)",
+                thData: "Data", thDescricao: "Descrição", thTipo: "Tipo", thValor: "Valor",
+                lblCriarCategoria: "➕ Criar Nova Categoria", phNomeCat: "Nome da Categoria",
+                optCatSaida: "Saída (-)", optCatEntrada: "Entrada (+)", btnAddCat: "Adicionar Categoria",
+                lblCatMes: "📝 Categorias do Mês", lblSubEntradas: "ENTRADAS", lblSubSaidas: "SAÍDAS",
+                lblResumoAnual: "📅 Resumo Anual", lblDescResumoAnual: "Acompanhe o total de entradas, saídas e o balanço consolidado de cada mês do ano.",
+                thMes: "Mês", thEntradas: "Entradas", thSaidas: "Saídas", thResultado: "Resultado", totalAno: "TOTAL ANO",
+                lblCfgTitulo: "Configurações", lblCfgIdioma: "Idioma / Language", lblCfgAparencia: "Aparência (Tema)",
+                optTemaEscuro: "Escuro (Padrão)", optTemaClaro: "Claro", lblCfgAno: "Selecione o Ano",
+                lblCfgMoeda: "Moeda Principal", lblCfgConversor: "Conversor PTAX (Banco Central)", btnSairConta: "Sair da Conta 🚪"
+            },
+            en: {
+                meses: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+                authEntrar: "Log in to Aurora", authCadastrar: "Sign up for Aurora",
+                btnEntrar: "Log In", btnCadastrar: "Sign Up",
+                linkCadastrar: "Don't have an account? Sign up", linkEntrar: "Already have an account? Log in",
+                setupTitulo: "Customize Your Horizon", setupSub: "Do you have children?",
+                optSim: "Yes", optNao: "No", qtdFilhosLbl: "How many children do you have?",
+                btnConcluirSetup: "Complete Setup", logoutMenu: "Go to home screen",
+                btnCfgHeader: "⚙️ Settings", btnNovoPerfil: "+ New Profile",
+                subAba1: "📊 Overview", subAba2: "📋 Spreadsheets", subAba3: "📂 Categories", subAba4: "📅 Annual History",
+                lblVisaoGeral: "Overview", btnOcultar: "👁️ Hide", btnMostrar: "👁️ Show",
+                lblSaldoAnterior: "PREVIOUS BALANCE", lblNovoSaldoFinal: "NEW FINAL BALANCE",
+                lblBalancoGrafico: "Balance", lblEntradasLegenda: "Incomes", lblSaidasLegenda: "Expenses",
+                lblMovimentacaoSaldos: "💸 Transactions History", optMovEntrada: "Income (+)", optMovSaida: "Expense (-)",
+                phDescricao: "Description", phValor: "Amount (0.00)", btnLancarMov: "Submit",
+                lblHistoricoLancamentos: "📑 Transaction History", btnExportarExcel: "📥 Export Excel",
+                optFiltroMes: "Active Month Transactions", optFiltroAno: "Annual Transactions (Full Year)",
+                thData: "Date", thDescricao: "Description", thTipo: "Type", thValor: "Amount",
+                lblCriarCategoria: "➕ Create New Category", phNomeCat: "Category Name",
+                optCatSaida: "Expense (-)", optCatEntrada: "Income (+)", btnAddCat: "Add Category",
+                lblCatMes: "📝 Monthly Categories", lblSubEntradas: "INCOMES", lblSubSaidas: "EXPENSES",
+                lblResumoAnual: "📅 Annual Summary", lblDescResumoAnual: "Track total incomes, expenses, and consolidated balance for each month.",
+                thMes: "Month", thEntradas: "Incomes", thSaidas: "Expenses", thResultado: "Result", totalAno: "YEAR TOTAL",
+                lblCfgTitulo: "Settings", lblCfgIdioma: "Language", lblCfgAparencia: "Appearance (Theme)",
+                optTemaEscuro: "Dark (Default)", optTemaClaro: "Light", lblCfgAno: "Select Year",
+                lblCfgMoeda: "Primary Currency", lblCfgConversor: "PTAX Converter (Central Bank)", btnSairConta: "Log Out 🚪"
+            },
+            es: {
+                meses: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
+                authEntrar: "Iniciar sesión en Aurora", authCadastrar: "Registrarse en Aurora",
+                btnEntrar: "Entrar", btnCadastrar: "Registrarse",
+                linkCadastrar: "¿No tienes cuenta? Regístrate", linkEntrar: "¿Ya tienes cuenta? Inicia sesión",
+                setupTitulo: "Personaliza tu Horizonte", setupSub: "¿Tienes hijos?",
+                optSim: "Sí", optNao: "No", qtdFilhosLbl: "¿Cuántos hijos tienes?",
+                btnConcluirSetup: "Completar Configuración", logoutMenu: "Ir a la pantalla inicial",
+                btnCfgHeader: "⚙️ Configuración", btnNovoPerfil: "+ Nuevo Perfil",
+                subAba1: "📊 Visión General", subAba2: "📋 Planillas", subAba3: "📂 Categorías", subAba4: "📅 Historial Anual",
+                lblVisaoGeral: "Visión General", btnOcultar: "👁️ Ocultar", btnMostrar: "👁️ Mostrar",
+                lblSaldoAnterior: "SALDO ANTERIOR", lblNovoSaldoFinal: "NUEVO SALDO FINAL",
+                lblBalancoGrafico: "Balance", lblEntradasLegenda: "Ingresos", lblSaidasLegenda: "Gastos",
+                lblMovimentacaoSaldos: "💸 Movimiento de Saldos", optMovEntrada: "Ingreso (+)", optMovSaida: "Gasto (-)",
+                phDescricao: "Descripción", phValor: "Valor (0.00)", btnLancarMov: "Registrar",
+                lblHistoricoLancamentos: "📑 Historial de Registros", btnExportarExcel: "📥 Exportar Excel",
+                optFiltroMes: "Movimiento del Mes Activo", optFiltroAno: "Movimiento Anual (Todo el Año)",
+                thData: "Fecha", thDescricao: "Descripción", thTipo: "Tipo", thValor: "Valor",
+                lblCriarCategoria: "➕ Crear Nueva Categoría", phNomeCat: "Nombre de Categoría",
+                optCatSaida: "Gasto (-)", optCatEntrada: "Ingreso (+)", btnAddCat: "Añadir Categoría",
+                lblCatMes: "📝 Categorías del Mes", lblSubEntradas: "INGRESOS", lblSubSaidas: "GASTOS",
+                lblResumoAnual: "📅 Resumen Anual", lblDescResumoAnual: "Siga el total de ingresos, gastos y saldo consolidado de cada mes del año.",
+                thMes: "Mes", thEntradas: "Ingresos", thSaidas: "Gastos", thResultado: "Resultado", totalAno: "TOTAL AÑO",
+                lblCfgTitulo: "Configuración", lblCfgIdioma: "Idioma", lblCfgAparencia: "Apariencia (Tema)",
+                optTemaEscuro: "Oscuro (Predeterminado)", optTemaClaro: "Claro", lblCfgAno: "Seleccionar Año",
+                lblCfgMoeda: "Moneda Principal", lblCfgConversor: "Conversor PTAX (Banco Central)", btnSairConta: "Cerrar Sesión 🚪"
+            },
+            fr: {
+                meses: ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
+                authEntrar: "Connexion à Aurora", authCadastrar: "S'inscrire à Aurora",
+                btnEntrar: "Se connecter", btnCadastrar: "S'inscrire",
+                linkCadastrar: "Pas de compte? Inscrivez-vous", linkEntrar: "Déjà un compte? Connectez-vous",
+                setupTitulo: "Personnalisez votre Horizon", setupSub: "Avez-vous des enfants?",
+                optSim: "Oui", optNao: "Non", qtdFilhosLbl: "Combien d'enfants avez-vous?",
+                btnConcluirSetup: "Terminer la configuration", logoutMenu: "Aller à l'accueil",
+                btnCfgHeader: "⚙️ Paramètres", btnNovoPerfil: "+ Nouveau Profil",
+                subAba1: "📊 Vue Générale", subAba2: "📋 Tableaux", subAba3: "📂 Catégories", subAba4: "📅 Historique Annuel",
+                lblVisaoGeral: "Vue Générale", btnOcultar: "👁️ Masquer", btnMostrar: "👁️ Afficher",
+                lblSaldoAnterior: "SOLDE PRÉCÉDENT", lblNovoSaldoFinal: "NOUVEAU SOLDE FINAL",
+                lblBalancoGrafico: "Bilan", lblEntradasLegenda: "Revenus", lblSaidasLegenda: "Dépenses",
+                lblMovimentacaoSaldos: "💸 Mouvement de Soldes", optMovEntrada: "Revenu (+)", optMovSaida: "Dépense (-)",
+                phDescricao: "Description", phValor: "Montant (0.00)", btnLancarMov: "Ajouter",
+                lblHistoricoLancamentos: "📑 Historique des transactions", btnExportarExcel: "📥 Exporter Excel",
+                optFiltroMes: "Transactions du mois actif", optFiltroAno: "Transactions annuelles (Toute l'année)",
+                thData: "Date", thDescricao: "Description", thTipo: "Type", thValor: "Montant",
+                lblCriarCategoria: "➕ Créer une nouvelle catégorie", phNomeCat: "Nom de la catégorie",
+                optCatSaida: "Dépense (-)", optCatEntrada: "Revenu (+)", btnAddCat: "Ajouter Catégorie",
+                lblCatMes: "📝 Catégories du mois", lblSubEntradas: "REVENUS", lblSubSaidas: "DÉPENSES",
+                lblResumoAnual: "📅 Résumé Annuel", lblDescResumoAnual: "Suivez le total des revenus, dépenses et solde consolidé chaque mois.",
+                thMes: "Mois", thEntradas: "Revenus", thSaidas: "Dépenses", thResultado: "Résultat", totalAno: "TOTAL ANNÉE",
+                lblCfgTitulo: "Paramètres", lblCfgIdioma: "Langue", lblCfgAparencia: "Apparence (Thème)",
+                optTemaEscuro: "Sombre (Par défaut)", optTemaClaro: "Clair", lblCfgAno: "Sélectionner l'année",
+                lblCfgMoeda: "Devise Principale", lblCfgConversor: "Convertisseur PTAX (Banque Centrale)", btnSairConta: "Déconnexion 🚪"
+            },
+            de: {
+                meses: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+                authEntrar: "Bei Aurora anmelden", authCadastrar: "Bei Aurora registrieren",
+                btnEntrar: "Anmelden", btnCadastrar: "Registrieren",
+                linkCadastrar: "Kein Konto? Registrieren", linkEntrar: "Bereits ein Konto? Anmelden",
+                setupTitulo: "Personalisieren Sie Ihren Horizont", setupSub: "Haben Sie Kinder?",
+                optSim: "Ja", optNao: "Nein", qtdFilhosLbl: "Wie viele Kinder haben Sie?",
+                btnConcluirSetup: "Einrichtung abschließen", logoutMenu: "Zum Startbildschirm",
+                btnCfgHeader: "⚙️ Einstellungen", btnNovoPerfil: "+ Neues Profil",
+                subAba1: "📊 Übersicht", subAba2: "📋 Tabellen", subAba3: "📂 Kategorien", subAba4: "📅 Jahresverlauf",
+                lblVisaoGeral: "Übersicht", btnOcultar: "👁️ Ausblenden", btnMostrar: "👁️ Einblenden",
+                lblSaldoAnterior: "VORHERIGER KONTOSTAND", lblNovoSaldoFinal: "NEUER ENDSTAND",
+                lblBalancoGrafico: "Bilanz", lblEntradasLegenda: "Einnahmen", lblSaidasLegenda: "Ausgaben",
+                lblMovimentacaoSaldos: "💸 Transaktionsverlauf", optMovEntrada: "Einnahme (+)", optMovSaida: "Ausgabe (-)",
+                phDescricao: "Beschreibung", phValor: "Betrag (0.00)", btnLancarMov: "Eintragen",
+                lblHistoricoLancamentos: "📑 Buchungshistorie", btnExportarExcel: "📥 Excel Exportieren",
+                optFiltroMes: "Transaktionen des aktiven Monats", optFiltroAno: "Jahrestransaktionen (Ganzes Jahr)",
+                thData: "Datum", thDescricao: "Beschreibung", thTipo: "Typ", thValor: "Betrag",
+                lblCriarCategoria: "➕ Neue Kategorie erstellen", phNomeCat: "Kategoriename",
+                optCatSaida: "Ausgabe (-)", optCatEntrada: "Einnahme (+)", btnAddCat: "Kategorie hinzufügen",
+                lblCatMes: "📝 Monatskategorien", lblSubEntradas: "EINNAHMEN", lblSubSaidas: "AUSGABEN",
+                lblResumoAnual: "📅 Jahreszusammenfassung", lblDescResumoAnual: "Verfolgen Sie monatliche Einnahmen, Ausgaben und Gesamtsaldo.",
+                thMes: "Monat", thEntradas: "Einnahmen", thSaidas: "Ausgaben", thResultado: "Ergebnis", totalAno: "JAHRESTOTAL",
+                lblCfgTitulo: "Einstellungen", lblCfgIdioma: "Sprache", lblCfgAparencia: "Erscheinungsbild (Design)",
+                optTemaEscuro: "Dunkel (Standard)", optTemaClaro: "Hell", lblCfgAno: "Jahr auswählen",
+                lblCfgMoeda: "Hauptwährung", lblCfgConversor: "PTAX Rechner (Zentralbank)", btnSairConta: "Abmelden 🚪"
+            },
+            it: {
+                meses: ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
+                authEntrar: "Accedi ad Aurora", authCadastrar: "Registrati su Aurora",
+                btnEntrar: "Accedi", btnCadastrar: "Registrati",
+                linkCadastrar: "Non hai un account? Registrati", linkEntrar: "Hai già un account? Accedi",
+                setupTitulo: "Personalizza il tuo Orizzonte", setupSub: "Hai figli?",
+                optSim: "Sì", optNao: "No", qtdFilhosLbl: "Quanti figli hai?",
+                btnConcluirSetup: "Completa Configurazione", logoutMenu: "Vai alla schermata iniziale",
+                btnCfgHeader: "⚙️ Impostazioni", btnNovoPerfil: "+ Nuovo Profilo",
+                subAba1: "📊 Panoramica", subAba2: "📋 Fogli", subAba3: "📂 Categorie", subAba4: "📅 Storico Annuale",
+                lblVisaoGeral: "Panoramica", btnOcultar: "👁️ Nascondi", btnMostrar: "👁️ Mostra",
+                lblSaldoAnterior: "SALDO PRECEDENTE", lblNovoSaldoFinal: "NUOVO SALDO FINALE",
+                lblBalancoGrafico: "Bilancio", lblEntradasLegenda: "Entrate", lblSaidasLegenda: "Uscite",
+                lblMovimentacaoSaldos: "💸 Movimento dei Saldi", optMovEntrada: "Entrata (+)", optMovSaida: "Uscita (-)",
+                phDescricao: "Descrizione", phValor: "Importo (0.00)", btnLancarMov: "Invia",
+                lblHistoricoLancamentos: "📑 Cronologia Transazioni", btnExportarExcel: "📥 Esporta Excel",
+                optFiltroMes: "Transazioni Mese Attivo", optFiltroAno: "Transazioni Annuali (Tutto l'Anno)",
+                thData: "Data", thDescricao: "Descrizione", thTipo: "Tipo", thValor: "Importo",
+                lblCriarCategoria: "➕ Crea Nuova Categoria", phNomeCat: "Nome Categoria",
+                optCatSaida: "Uscita (-)", optCatEntrada: "Entrata (+)", btnAddCat: "Aggiungi Categoria",
+                lblCatMes: "📝 Categorie del Mese", lblSubEntradas: "ENTRATE", lblSubSaidas: "USCITE",
+                lblResumoAnual: "📅 Riepilogo Annuale", lblDescResumoAnual: "Segui il totale di entrate, uscite e saldo consolidato di ogni mese.",
+                thMes: "Mese", thEntradas: "Entrate", thSaidas: "Uscite", thResultado: "Risultato", totalAno: "TOTALE ANNO",
+                lblCfgTitulo: "Impostazioni", lblCfgIdioma: "Lingua", lblCfgAparencia: "Aspetto (Tema)",
+                optTemaEscuro: "Scuro (Predefinito)", optTemaClaro: "Chiaro", lblCfgAno: "Seleziona Anno",
+                lblCfgMoeda: "Valuta Principale", lblCfgConversor: "Convertitore PTAX (Banca Centrale)", btnSairConta: "Esci dall'account 🚪"
+            },
+            ar: {
+                meses: ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"],
+                authEntrar: "تسجيل الدخول إلى أورورا", authCadastrar: "الاشتراك في أورورا",
+                btnEntrar: "دخول", btnCadastrar: "اشتراك",
+                linkCadastrar: "ليس لديك حساب؟ اشترك الآن", linkEntrar: "لديك حساب بالفعل؟ سجل دخولك",
+                setupTitulo: "خصص أفقك المالية", setupSub: "هل لديك أطفال؟",
+                optSim: "نعم", optNao: "لا", qtdFilhosLbl: "كم عدد أطفالك؟",
+                btnConcluirSetup: "إنهاء الإعداد", logoutMenu: "الذهاب للشاشة الرئيسية",
+                btnCfgHeader: "⚙️ الإعدادات", btnNovoPerfil: "+ ملف شخصي جديد",
+                subAba1: "📊 نظرة عامة", subAba2: "📋 الجداول", subAba3: "📂 الفئات", subAba4: "📅 السجل السنوي",
+                lblVisaoGeral: "نظرة عامة", btnOcultar: "👁️ إخفاء", btnMostrar: "👁️ إظهار",
+                lblSaldoAnterior: "الرصيد السابق", lblNovoSaldoFinal: "الرصيد النهائي الجديد",
+                lblBalancoGrafico: "الرصيد", lblEntradasLegenda: "المداخيل", lblSaidasLegenda: "المصاريف",
+                lblMovimentacaoSaldos: "💸 حركة الأرصدة", optMovEntrada: "دخل (+)", optMovSaida: "مصروف (-)",
+                phDescricao: "الوصف", phValor: "المبلغ (0.00)", btnLancarMov: "إضافة",
+                lblHistoricoLancamentos: "📑 سجل المعاملات", btnExportarExcel: "📥 تصدير إلى Excel",
+                optFiltroMes: "معاملات الشهر الحالي", optFiltroAno: "المعاملات السنوية (السنة كاملة)",
+                thData: "التاريخ", thDescricao: "الوصف", thTipo: "النوع", thValor: "المبلغ",
+                lblCriarCategoria: "➕ إنشاء فئة جديدة", phNomeCat: "اسم الفئة",
+                optCatSaida: "مصروف (-)", optCatEntrada: "دخل (+)", btnAddCat: "إضافة فئة",
+                lblCatMes: "📝 فئات الشهر", lblSubEntradas: "المداخيل", lblSubSaidas: "المصاريف",
+                lblResumoAnual: "📅 الملخص السنوي", lblDescResumoAnual: "تابع إجمالي المداخيل والمصاريف والرصيد المجمع لكل شهر من السنة.",
+                thMes: "الشهر", thEntradas: "المداخيل", thSaidas: "المصاريف", thResultado: "النتيجة", totalAno: "المجموع السنوي",
+                lblCfgTitulo: "الإعدادات", lblCfgIdioma: "اللغة", lblCfgAparencia: "المظهر (النسق)",
+                optTemaEscuro: "داكن (افتراضي)", optTemaClaro: "فاتح", lblCfgAno: "حدد السنة",
+                lblCfgMoeda: "العملة الرئيسية", lblCfgConversor: "محول العملات PTAX (البنك المركزي)", btnSairConta: "تسجيل الخروج 🚪"
+            }
+        };
+
+        const CATEGORIAS_PADRAO = [
+            { id: 'salario', nome: 'Salário', descricao: 'Rendimento mensal fixo', tipo: 'entrada' },
+            { id: 'investimentos', nome: 'Investimentos', descricao: 'Dividendos e rendimentos', tipo: 'entrada' },
+            { id: 'freelance', nome: 'Freelance / Extras', descricao: 'Rendimentos esporádicos', tipo: 'entrada' },
+            { id: 'mercado', nome: 'Mercado', descricao: 'Alimentação e compras do mês', tipo: 'saida' },
+            { id: 'contas', nome: 'Contas Fixas', descricao: 'Água, luz, aluguel, internet', tipo: 'saida' },
+            { id: 'delivery', nome: 'Alimentação fora / Delivery', descricao: 'Restaurantes e lanches', tipo: 'saida' },
+            { id: 'lazer', nome: 'Lazer e Viagens', descricao: 'Passeios, férias e cinema', tipo: 'saida' },
+            { id: 'streaming', nome: 'Streaming & Assinaturas', descricao: 'Netflix, Spotify, etc.', tipo: 'saida' },
+            { id: 'transporte', nome: 'Transporte / Combustível', descricao: 'Uber, transporte público ou gasolina', tipo: 'saida' }
+        ];
+
+        let appState = {
+            anoCorrente: new Date().getFullYear().toString(),
+            mesCorrente: new Date().getMonth(),
+            moedaCorrente: "BRL",
+            temaCorrente: "escuro",
+            idiomaCorrente: "pt",
+            perfilCorrente: "Principal",
+            perfisCadastrados: ["Principal"],
+            possuiFilhos: undefined,
+            qtdFilhos: 0,
+            categoriasCustom: [...CATEGORIAS_PADRAO],
+            dadosFinanceiros: {}
+        };
+
+        let mesesNomes = TRADUCOES.pt.meses;
+        const simbolosMoedas = { BRL: "R$", USD: "$", EUR: "€", GBP: "£", CHF: "CHF" };
+        
+        // CACHE DE COTAÇÕES BACEN
+        let cotacoesBacenValores = { BRL: 1.0 };
+
+        /**
+         * BUSCA COTAÇÃO OFICIAL DIRETO NA API PTAX DO BANCO CENTRAL DO BRASIL
+         */
+        async function obterCotacaoOficialBacen(codigoMoeda) {
+            if (codigoMoeda === 'BRL') return 1.0;
+
+            let dataBusca = new Date();
+            let cotacaoVenda = null;
+            let tentativas = 0;
+            const maxTentativas = 7; // Procura nos últimos 7 dias para ignorar fins de semana e feriados
+
+            while (!cotacaoVenda && tentativas < maxTentativas) {
+                const mm = String(dataBusca.getMonth() + 1).padStart(2, '0');
+                const dd = String(dataBusca.getDate()).padStart(2, '0');
+                const yyyy = dataBusca.getFullYear();
+                const dataFormatada = `${mm}-${dd}-${yyyy}`;
+
+                const urlApiBacen = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='${codigoMoeda}'&@dataCotacao='${dataFormatada}'&$format=json`;
+
+                try {
+                    const response = await fetch(urlApiBacen);
+                    const data = await response.json();
+
+                    if (data.value && data.value.length > 0) {
+                        const ultimoBoletim = data.value[data.value.length - 1];
+                        cotacaoVenda = ultimoBoletim.cotacaoVenda;
+                        return cotacaoVenda;
+                    }
+                } catch (erro) {
+                    console.error(`[BACEN API] Erro ao obter cotação para ${codigoMoeda}:`, erro);
+                    break;
+                }
+
+                // Volta 1 dia se não houver dados (sábado, domingo ou feriado)
+                dataBusca.setDate(dataBusca.getDate() - 1);
+                tentativas++;
+            }
+
+            return null;
+        }
+
+        async function atualizarCotacoesDoBacen() {
+            const moedasParaBuscar = ['USD', 'EUR', 'GBP', 'CHF'];
+            for (let m of moedasParaBuscar) {
+                let valor = await obterCotacaoOficialBacen(m);
+                if (valor) {
+                    cotacoesBacenValores[m] = valor; // Valor da moeda em Reais (BRL)
+                }
+            }
+            calcularConversorCambio();
+        }
+
+        function inicializarSelectAnos() {
+            const selectAno = document.getElementById('cfg-ano');
+            selectAno.innerHTML = "";
+            const anoAtualNum = new Date().getFullYear();
+            
+            for (let ano = 2025; ano <= anoAtualNum + 10; ano++) {
+                const opt = document.createElement('option');
+                opt.value = ano.toString();
+                opt.innerText = ano.toString();
+                if(ano.toString() === appState.anoCorrente) opt.selected = true;
+                selectAno.appendChild(opt);
+            }
+        }
+
+        function toggleLogoDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('logo-menu-dropdown');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        }
+
+        document.addEventListener('click', () => {
+            document.getElementById('logo-menu-dropdown').style.display = 'none';
+        });
+
+        function alternarModoAuth() {
+            modoCadastro = !modoCadastro;
+            const t = TRADUCOES[appState.idiomaCorrente || 'pt'];
+            document.getElementById('auth-titulo').innerText = modoCadastro ? t.authCadastrar : t.authEntrar;
+            document.getElementById('btn-auth-principal').innerText = modoCadastro ? t.btnCadastrar : t.btnEntrar;
+            document.getElementById('btn-auth-alternar').innerText = modoCadastro ? t.linkEntrar : t.linkCadastrar;
+        }
+
+        async function executarAutenticacao() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            if (!email || !password) return alert("Preencha os campos!");
+            try {
+                if (modoCadastro) {
+                    await window.authEnv.criarUsuario(window.authEnv.auth, email, password);
+                } else {
+                    await window.authEnv.fazerLogin(window.authEnv.auth, email, password);
+                }
+            } catch (e) { alert("Erro: " + e.message); }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('mov-data').valueAsDate = new Date();
+            const verificarAuth = setInterval(() => {
+                if (window.authEnv && window.authEnv.auth) {
+                    clearInterval(verificarAuth);
+                    window.authEnv.auth.onAuthStateChanged(async (user) => {
+                        if (user) {
+                            usuarioAtualId = user.uid;
+                            document.getElementById('tela-autenticacao').classList.add('hidden');
+                            
+                            const docRef = window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId);
+                            const docSnap = await window.authEnv.getDoc(docRef);
+
+                            if (docSnap.exists()) {
+                                appState = { ...appState, ...docSnap.data() };
+                                if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
+                                if(!appState.perfilCorrente) appState.perfilCorrente = "Principal";
+                                if(!appState.temaCorrente) appState.temaCorrente = "escuro";
+                                if(!appState.idiomaCorrente) appState.idiomaCorrente = "pt";
+                                if(!appState.categoriasCustom || appState.categoriasCustom.length === 0) {
+                                    appState.categoriasCustom = [...CATEGORIAS_PADRAO];
+                                }
+                                aplicarTemaVisual();
+                                aplicarIdiomaTextos();
+                                atualizarSelectPerfis();
+                                inicializarSelectAnos();
+                                renderizarMesesBotoes();
+
+                                if (appState.possuiFilhos === undefined) {
+                                    document.getElementById('tela-filhos').classList.remove('hidden');
+                                } else {
+                                    abrirAppPrincipal();
+                                }
+                            } else {
+                                aplicarIdiomaTextos();
+                                document.getElementById('tela-filhos').classList.remove('hidden');
+                            }
+                        } else {
+                            document.getElementById('app-container').classList.add('hidden');
+                            document.getElementById('tela-autenticacao').classList.remove('hidden');
+                        }
+                    });
+                }
+            }, 500);
+
+            // Carrega cotações do BACEN ao iniciar
+            atualizarCotacoesDoBacen();
+        });
+
+        /* --- SISTEMA DE IDIOMAS --- */
+        function alterarIdiomaSistema(novoIdioma) {
+            appState.idiomaCorrente = novoIdioma;
+            aplicarIdiomaTextos();
+            salvarDadosNoCloud();
+        }
+
+        function aplicarIdiomaTextos() {
+            const lang = appState.idiomaCorrente || 'pt';
+            const t = TRADUCOES[lang] || TRADUCOES.pt;
+            mesesNomes = t.meses;
+
+            // Auth & Setup
+            document.getElementById('auth-titulo').innerText = modoCadastro ? t.authCadastrar : t.authEntrar;
+            document.getElementById('btn-auth-principal').innerText = modoCadastro ? t.btnCadastrar : t.btnEntrar;
+            document.getElementById('btn-auth-alternar').innerText = modoCadastro ? t.linkEntrar : t.linkCadastrar;
+            document.getElementById('txt-setup-titulo').innerText = t.setupTitulo;
+            document.getElementById('txt-setup-sub').innerText = t.setupSub;
+            document.getElementById('opt-filhos-sim').innerText = t.optSim;
+            document.getElementById('opt-filhos-nao').innerText = t.optNao;
+            document.getElementById('txt-qtd-filhos-lbl').innerText = t.qtdFilhosLbl;
+            document.getElementById('btn-concluir-setup').innerText = t.btnConcluirSetup;
+            document.getElementById('btn-menu-logout').innerText = t.logoutMenu;
+
+            // Interface
+            document.getElementById('btn-cfg-header').innerText = t.btnCfgHeader;
+            document.getElementById('btn-novo-perfil').innerText = t.btnNovoPerfil;
+            document.getElementById('sub-aba-1').innerText = t.subAba1;
+            document.getElementById('sub-aba-2').innerText = t.subAba2;
+            document.getElementById('sub-aba-3').innerText = t.subAba3;
+            document.getElementById('sub-aba-4').innerText = t.subAba4;
+
+            // Visão Geral
+            document.getElementById('lbl-visao-geral').innerText = t.lblVisaoGeral;
+            document.getElementById('btn-alternar-visibilidade').innerText = saldosOcultados ? t.btnMostrar : t.btnOcultar;
+            document.getElementById('lbl-saldo-anterior').innerText = t.lblSaldoAnterior;
+            document.getElementById('lbl-novo-saldo-final').innerText = t.lblNovoSaldoFinal;
+            document.getElementById('lbl-balanco-grafico').innerText = t.lblBalancoGrafico;
+            document.getElementById('lbl-entradas-legenda').innerText = t.lblEntradasLegenda;
+            document.getElementById('lbl-saidas-legenda').innerText = t.lblSaidasLegenda;
+            document.getElementById('lbl-movimentacao-saldos').innerText = t.lblMovimentacaoSaldos;
+            document.getElementById('opt-mov-entrada').innerText = t.optMovEntrada;
+            document.getElementById('opt-mov-saida').innerText = t.optMovSaida;
+            document.getElementById('mov-descricao').placeholder = t.phDescricao;
+            document.getElementById('mov-valor').placeholder = t.phValor;
+            document.getElementById('btn-lancar-mov').innerText = t.btnLancarMov;
+
+            // Planilhas
+            document.getElementById('lbl-historico-lancamentos').innerText = t.lblHistoricoLancamentos;
+            document.getElementById('btn-exportar-excel').innerText = t.btnExportarExcel;
+            document.getElementById('opt-filtro-mes').innerText = t.optFiltroMes;
+            document.getElementById('opt-filtro-ano').innerText = t.optFiltroAno;
+            document.getElementById('th-data').innerText = t.thData;
+            document.getElementById('th-descricao').innerText = t.thDescricao;
+            document.getElementById('th-tipo').innerText = t.thTipo;
+            document.getElementById('th-valor').innerText = t.thValor;
+
+            // Categorias
+            document.getElementById('lbl-criar-categoria').innerText = t.lblCriarCategoria;
+            document.getElementById('nova-cat-nome').placeholder = t.phNomeCat;
+            document.getElementById('opt-cat-saida').innerText = t.optCatSaida;
+            document.getElementById('opt-cat-entrada').innerText = t.optCatEntrada;
+            document.getElementById('btn-add-categoria').innerText = t.btnAddCat;
+            document.getElementById('lbl-cat-mes').innerText = t.lblCatMes;
+            document.getElementById('lbl-sub-entradas').innerText = t.lblSubEntradas;
+            document.getElementById('lbl-sub-saidas').innerText = t.lblSubSaidas;
+
+            // Histórico Anual
+            document.getElementById('lbl-resumo-anual').innerText = t.lblResumoAnual;
+            document.getElementById('lbl-desc-resumo-anual').innerText = t.lblDescResumoAnual;
+            document.getElementById('th-mes').innerText = t.thMes;
+            document.getElementById('th-entradas').innerText = t.thEntradas;
+            document.getElementById('th-saidas').innerText = t.thSaidas;
+            document.getElementById('th-resultado').innerText = t.thResultado;
+
+            // Configurações
+            document.getElementById('lbl-cfg-titulo').innerText = t.lblCfgTitulo;
+            document.getElementById('lbl-cfg-idioma').innerText = t.lblCfgIdioma;
+            document.getElementById('lbl-cfg-aparencia').innerText = t.lblCfgAparencia;
+            document.getElementById('opt-tema-escuro').innerText = t.optTemaEscuro;
+            document.getElementById('opt-tema-claro').innerText = t.optTemaClaro;
+            document.getElementById('lbl-cfg-ano').innerText = t.lblCfgAno;
+            document.getElementById('lbl-cfg-moeda').innerText = t.lblCfgMoeda;
+            document.getElementById('lbl-cfg-conversor').innerText = t.lblCfgConversor;
+            document.getElementById('btn-sair-conta').innerText = t.btnSairConta;
+
+            renderizarMesesBotoes();
+            processarLógicaFinanceiraMês();
+            if(!document.getElementById('view-historico-anual').classList.contains('hidden')) {
+                renderizarHistoricoAnual();
+            }
+        }
+
+        /* --- FLUXO DE SELEÇÃO DE FILHOS --- */
+        function selecionarOpcaoFilhos(opcao) {
+            appState.possuiFilhos = opcao;
+            document.getElementById('opt-filhos-sim').classList.toggle('selecionado', opcao === true);
+            document.getElementById('opt-filhos-nao').classList.toggle('selecionado', opcao === false);
+            
+            const boxQtd = document.getElementById('box-quantidade-filhos');
+            if (opcao === true) {
+                boxQtd.classList.remove('hidden');
+            } else {
+                boxQtd.classList.add('hidden');
+                document.getElementById('input-qtd-filhos').value = "";
+                appState.qtdFilhos = 0;
+            }
+        }
+
+        async function concluirSetupInicial() {
+            if (appState.possuiFilhos === undefined) return alert("Selecione Sim ou Não!");
+
+            if (appState.possuiFilhos === true) {
+                const qtd = parseInt(document.getElementById('input-qtd-filhos').value);
+                if (isNaN(qtd) || qtd <= 0) return alert("Insira a quantidade de filhos!");
+                appState.qtdFilhos = qtd;
+
+                const existeEscola = appState.categoriasCustom.some(c => c.id === 'escola');
+                if (!existeEscola) {
+                    appState.categoriasCustom.push({
+                        id: 'escola',
+                        nome: 'Escola / Educação',
+                        descricao: `Gastos educacionais de ${appState.qtdFilhos} filho(s)`,
+                        tipo: 'saida'
+                    });
+                } else {
+                    let catEscola = appState.categoriasCustom.find(c => c.id === 'escola');
+                    catEscola.descricao = `Gastos educacionais de ${appState.qtdFilhos} filho(s)`;
+                }
+            } else {
+                appState.categoriasCustom = appState.categoriasCustom.filter(c => c.id !== 'escola');
+                appState.qtdFilhos = 0;
+            }
+
+            document.getElementById('tela-filhos').classList.add('hidden');
+            if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
+            if(!appState.perfilCorrente) appState.perfilCorrente = "Principal";
+            atualizarSelectPerfis();
+            inicializarSelectAnos();
+            renderizarMesesBotoes();
+            abrirAppPrincipal();
+            salvarDadosNoCloud();
+        }
+
+        function criarNovoPerfil() {
+            const nomePerfil = prompt("Digite o nome do novo perfil:");
+            if (!nomePerfil || nomePerfil.trim() === "") return;
+            const nomeFormatado = nomePerfil.trim();
+            if (appState.perfisCadastrados.includes(nomeFormatado)) return alert("Este perfil já existe.");
+            
+            appState.perfisCadastrados.push(nomeFormatado);
+            appState.perfilCorrente = nomeFormatado;
+            atualizarSelectPerfis();
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        function atualizarSelectPerfis() {
+            const select = document.getElementById('select-perfil-usuario');
+            select.innerHTML = "";
+            appState.perfisCadastrados.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.innerText = p === "Principal" ? "Principal (Padrão)" : p;
+                if(p === appState.perfilCorrente) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function alterarPerfilAtivo(novoPerfil) {
+            appState.perfilCorrente = novoPerfil;
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        function renderizarMesesBotoes() {
+            const container = document.getElementById('container-meses-botoes');
+            container.innerHTML = "";
+            mesesNomes.forEach((nome, index) => {
+                const btn = document.createElement('button');
+                btn.className = `btn-mes ${index === appState.mesCorrente ? 'ativo' : ''}`;
+                btn.innerText = nome;
+                btn.onclick = () => mudarMesAtivo(index);
+                container.appendChild(btn);
+            });
+        }
+
+        function mudarMesAtivo(indexMes) {
+            appState.mesCorrente = indexMes;
+            renderizarMesesBotoes();
+            processarLógicaFinanceiraMês();
+        }
+
+        function abrirAppPrincipal() {
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('cfg-moeda').value = appState.moedaCorrente;
+            document.getElementById('cfg-ano').value = appState.anoCorrente;
+            document.getElementById('cfg-tema').value = appState.temaCorrente;
+            document.getElementById('cfg-idioma').value = appState.idiomaCorrente || 'pt';
+            processarLógicaFinanceiraMês();
+        }
+
+        function mudarSubAba(abaId) {
+            document.querySelectorAll('.btn-sub-aba').forEach(b => b.classList.remove('ativa'));
+            document.querySelectorAll('.sub-view-item').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`sub-aba-${abaId}`).classList.add('ativa');
+            if(abaId === 1) document.getElementById('view-visao-geral').classList.remove('hidden');
+            if(abaId === 2) document.getElementById('view-planilhas').classList.remove('hidden');
+            if(abaId === 3) document.getElementById('view-categorias').classList.remove('hidden');
+            if(abaId === 4) {
+                document.getElementById('view-historico-anual').classList.remove('hidden');
+                renderizarHistoricoAnual();
+            }
+        }
+
+        function alternarSidebar(abrir) {
+            if(abrir) document.getElementById('sidebar-config').classList.remove('hidden');
+            else document.getElementById('sidebar-config').classList.add('hidden');
+        }
+
+        function alternarVisibilidadeSaldos() {
+            saldosOcultados = !saldosOcultados;
+            const t = TRADUCOES[appState.idiomaCorrente || 'pt'];
+            const btn = document.getElementById('btn-alternar-visibilidade');
+            btn.innerText = saldosOcultados ? t.btnMostrar : t.btnOcultar;
+            processarLógicaFinanceiraMês();
+        }
+
+        function obterDadosMes(perfil, ano, mesIdx) {
+            if (!appState.dadosFinanceiros) appState.dadosFinanceiros = {};
+            if (!appState.dadosFinanceiros[perfil]) appState.dadosFinanceiros[perfil] = {};
+            if (!appState.dadosFinanceiros[perfil][ano]) appState.dadosFinanceiros[perfil][ano] = {};
+            if (!appState.dadosFinanceiros[perfil][ano][mesIdx]) {
+                appState.dadosFinanceiros[perfil][ano][mesIdx] = {
+                    categorias: {},
+                    movimentacoes: []
+                };
+            }
+            return appState.dadosFinanceiros[perfil][ano][mesIdx];
+        }
+
+        function calcularTotaisMes(perfil, ano, mesIdx) {
+            const dados = obterDadosMes(perfil, ano, mesIdx);
+            let entradas = 0;
+            let saidas = 0;
+
+            appState.categoriasCustom.forEach(cat => {
+                let v = parseFloat(dados.categorias[cat.id] || 0);
+                if (cat.tipo === 'entrada') entradas += v;
+                else saidas += v;
+            });
+
+            dados.movimentacoes.forEach(mov => {
+                if (mov.tipo === 'entrada') entradas += parseFloat(mov.valor);
+                else saidas += parseFloat(mov.valor);
+            });
+
+            return { entradas, saidas, liquido: entradas - saidas };
+        }
+
+        function calcularSaldoAnteriorMês(perfilAlvo, anoAlvo, mesAlvoIdx) {
+            let saldoAcumulado = 0;
+            let todosAnosValidos = Object.keys(appState.dadosFinanceiros[perfilAlvo] || {});
+            if(!todosAnosValidos.includes(anoAlvo)) todosAnosValidos.push(anoAlvo);
+            todosAnosValidos.sort((a,b) => parseInt(a) - parseInt(b));
+            
+            for (let ano of todosAnosValidos) {
+                if (parseInt(ano) > parseInt(anoAlvo)) break;
+                let limiteMes = (ano === anoAlvo) ? mesAlvoIdx : 12;
+                for (let m = 0; m < limiteMes; m++) {
+                    let totais = calcularTotaisMes(perfilAlvo, ano, m);
+                    saldoAcumulado += totais.liquido;
+                }
+            }
+            return saldoAcumulado;
+        }
+
+        function renderizarCamposCategorias() {
+            const containerEntradas = document.getElementById('container-categorias-entradas');
+            const containerSaidas = document.getElementById('container-categorias-saidas');
+            const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+
+            containerEntradas.innerHTML = "";
+            containerSaidas.innerHTML = "";
+
+            appState.categoriasCustom.forEach(cat => {
+                const val = dadosMês.categorias[cat.id] || 0;
+                const div = document.createElement('div');
+                div.className = 'linha-categoria';
+                div.innerHTML = `
+                    <div class="lbl-cat">
+                        <strong>${cat.nome}</strong>
+                        <span>${cat.descricao || 'Categoria Personalizada'}</span>
+                    </div>
+                    <div class="cat-acoes">
+                        <input type="text" id="cat-${cat.id}" class="input-dinheiro" value="${formatarInput(val)}" oninput="salvarCategoriaInput('${cat.id}', this.value)">
+                        <button class="btn-excluir-cat" title="Excluir Categoria" onclick="excluirCategoria('${cat.id}')">🗑️</button>
+                    </div>
+                `;
+                if (cat.tipo === 'entrada') {
+                    containerEntradas.appendChild(div);
+                } else {
+                    containerSaidas.appendChild(div);
+                }
+            });
+        }
+
+        function criarNovaCategoriaPersonalizada() {
+            const nome = document.getElementById('nova-cat-nome').value.trim();
+            const tipo = document.getElementById('nova-cat-tipo').value;
+
+            if (!nome) return alert("Digite um nome para a categoria!");
+
+            const id = 'custom_' + Date.now();
+            appState.categoriasCustom.push({
+                id: id,
+                nome: nome,
+                descricao: 'Categoria Personalizada',
+                tipo: tipo
+            });
+
+            document.getElementById('nova-cat-nome').value = "";
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        function excluirCategoria(idCategoria) {
+            const cat = appState.categoriasCustom.find(c => c.id === idCategoria);
+            if (!cat) return;
+
+            if (confirm(`Tem certeza que deseja excluir a categoria "${cat.nome}"?`)) {
+                appState.categoriasCustom = appState.categoriasCustom.filter(c => c.id !== idCategoria);
+                processarLógicaFinanceiraMês();
+                salvarDadosNoCloud();
+            }
+        }
+
+        function processarLógicaFinanceiraMês() {
+            renderizarCamposCategorias();
+            
+            const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+            const saldoAnterior = calcularSaldoAnteriorMês(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+            const totaisMes = calcularTotaisMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+
+            const tabelaCorpo = document.getElementById('tabela-corpo-historico');
+            tabelaCorpo.innerHTML = "";
+
+            const modoFiltroHistorico = document.getElementById('filtro-visualizacao-historico') ? document.getElementById('filtro-visualizacao-historico').value : 'mes';
+            let listaMovimentacoesExibir = [];
+
+            if (modoFiltroHistorico === 'ano') {
+                for (let m = 0; m < 12; m++) {
+                    const dadosDoMes = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, m);
+                    dadosDoMes.movimentacoes.forEach(mov => listaMovimentacoesExibir.push(mov));
+                }
+            } else {
+                listaMovimentacoesExibir = dadosMês.movimentacoes;
+            }
+
+            const t = TRADUCOES[appState.idiomaCorrente || 'pt'];
+
+            listaMovimentacoesExibir.forEach(mov => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${mov.data}</td><td>${mov.descricao}</td><td>${mov.tipo === 'entrada' ? (t.optCatEntrada || 'Entrada') : (t.optCatSaida || 'Saída')}</td><td style="color:${mov.tipo === 'entrada' ? '#10b981':'#f43f5e'}">${simbolosMoedas[appState.moedaCorrente]} ${parseFloat(mov.valor).toFixed(2)}</td>`;
+                tabelaCorpo.appendChild(tr);
+            });
+
+            const novoSaldoFinal = saldoAnterior + totaisMes.liquido;
+
+            if (saldosOcultados) {
+                document.getElementById('txt-saldo-anterior').innerText = "••••••";
+                document.getElementById('txt-novo-saldo-final').innerText = "••••••";
+                document.getElementById('txt-novo-saldo-final').style.color = "var(--text-main)";
+                document.getElementById('txt-grafico-sobrou').innerText = "••••••";
+            } else {
+                document.getElementById('txt-saldo-anterior').innerText = `${simbolosMoedas[appState.moedaCorrente]} ${saldoAnterior.toFixed(2)}`;
+                const txtFinal = document.getElementById('txt-novo-saldo-final');
+                txtFinal.innerText = `${simbolosMoedas[appState.moedaCorrente]} ${novoSaldoFinal.toFixed(2)}`;
+                txtFinal.style.color = novoSaldoFinal >= 0 ? '#10b981' : '#f43f5e';
+                document.getElementById('txt-grafico-sobrou').innerText = `${simbolosMoedas[appState.moedaCorrente]} ${totaisMes.liquido.toFixed(2)}`;
+            }
+
+            let porcReceitas = 0, porcDespesas = 0;
+            const totalMovimentado = totaisMes.entradas + totaisMes.saidas;
+            
+            if (totalMovimentado > 0) {
+                porcReceitas = Math.round((totaisMes.entradas / totalMovimentado) * 100);
+                porcDespesas = 100 - porcReceitas;
+            }
+
+            document.getElementById('txt-grafico-porcentagem').innerText = totalMovimentado > 0 ? `${porcReceitas}%` : '0%';
+            document.getElementById('legenda-sobrou-porcento').innerText = `${porcReceitas}%`;
+            document.getElementById('legenda-despesas-porcento').innerText = `${porcDespesas}%`;
+            
+            const graficoCircular = document.getElementById('grafico-circular');
+            if (totalMovimentado > 0) {
+                graficoCircular.style.background = `conic-gradient(#10b981 0% ${porcReceitas}%, #f43f5e ${porcReceitas}% 100%)`;
+            } else {
+                graficoCircular.style.background = `conic-gradient(#1e293b 0% 100%)`;
+            }
+
+            calcularConversorCambio();
+        }
+
+        function renderizarHistoricoAnual() {
+            document.getElementById('lbl-ano-historico-anual').innerText = appState.anoCorrente;
+            const tabelaCorpo = document.getElementById('tabela-corpo-resumo-anual');
+            tabelaCorpo.innerHTML = "";
+
+            let totalEntradasAno = 0;
+            let totalSaidasAno = 0;
+
+            for (let m = 0; m < 12; m++) {
+                const totais = calcularTotaisMes(appState.perfilCorrente, appState.anoCorrente, m);
+                totalEntradasAno += totais.entradas;
+                totalSaidasAno += totais.saidas;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${mesesNomes[m]}</strong></td>
+                    <td style="color:#10b981;">${simbolosMoedas[appState.moedaCorrente]} ${totais.entradas.toFixed(2)}</td>
+                    <td style="color:#f43f5e;">${simbolosMoedas[appState.moedaCorrente]} ${totais.saidas.toFixed(2)}</td>
+                    <td style="font-weight:bold; color:${totais.liquido >= 0 ? '#10b981' : '#f43f5e'};">
+                        ${simbolosMoedas[appState.moedaCorrente]} ${totais.liquido.toFixed(2)}
+                    </td>
+                `;
+                tabelaCorpo.appendChild(tr);
+            }
+
+            const trTotal = document.createElement('tr');
+            trTotal.style.background = "var(--border-color)";
+            trTotal.style.fontWeight = "bold";
+            const saldoGeralAno = totalEntradasAno - totalSaidasAno;
+            const t = TRADUCOES[appState.idiomaCorrente || 'pt'];
+
+            trTotal.innerHTML = `
+                <td>${t.totalAno || 'TOTAL ANO'}</td>
+                <td style="color:#10b981;">${simbolosMoedas[appState.moedaCorrente]} ${totalEntradasAno.toFixed(2)}</td>
+                <td style="color:#f43f5e;">${simbolosMoedas[appState.moedaCorrente]} ${totalSaidasAno.toFixed(2)}</td>
+                <td style="color:${saldoGeralAno >= 0 ? '#10b981' : '#f43f5e'};">
+                    ${simbolosMoedas[appState.moedaCorrente]} ${saldoGeralAno.toFixed(2)}
+                </td>
+            `;
+            tabelaCorpo.appendChild(trTotal);
+        }
+
+        function salvarCategoriaInput(chave, valorRaw) {
+            let valorLimpo = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.')) || 0;
+            const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+            dadosMês.categorias[chave] = valorLimpo;
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        function adicionarMovimentacao() {
+            const data = document.getElementById('mov-data').value;
+            const tipo = document.getElementById('mov-tipo').value;
+            const descricao = document.getElementById('mov-descricao').value;
+            const valor = parseFloat(document.getElementById('mov-valor').value) || 0;
+
+            if(!descricao || valor <= 0) return alert("Preencha corretamente!");
+
+            const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+            dadosMês.movimentacoes.push({ data, tipo, descricao, valor });
+
+            document.getElementById('mov-descricao').value = "";
+            document.getElementById('mov-valor').value = "";
+
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        function formatarInput(num) {
+            if(!num) return "0,00";
+            return parseFloat(num).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        }
+
+        function alterarMoedaBase(novaMoeda) {
+            const moedaAntiga = appState.moedaCorrente;
+            if (moedaAntiga === novaMoeda) return;
+
+            // Fator de conversão usando cotações PTAX reais
+            const taxaEmBrlAntiga = cotacoesBacenValores[moedaAntiga] || 1.0;
+            const taxaEmBrlNova = cotacoesBacenValores[novaMoeda] || 1.0;
+            const taxaConversao = taxaEmBrlAntiga / taxaEmBrlNova;
+
+            if (appState.dadosFinanceiros) {
+                Object.keys(appState.dadosFinanceiros).forEach(perfil => {
+                    Object.keys(appState.dadosFinanceiros[perfil]).forEach(ano => {
+                        Object.keys(appState.dadosFinanceiros[perfil][ano]).forEach(mes => {
+                            const dados = appState.dadosFinanceiros[perfil][ano][mes];
+                            if (dados.categorias) {
+                                Object.keys(dados.categorias).forEach(cat => {
+                                    dados.categorias[cat] = (parseFloat(dados.categorias[cat] || 0) * taxaConversao);
+                                });
+                            }
+                            if (dados.movimentacoes) {
+                                dados.movimentacoes.forEach(mov => {
+                                    mov.valor = (parseFloat(mov.valor || 0) * taxaConversao);
+                                });
+                            }
+                        });
+                    });
+                });
+            }
+
+            appState.moedaCorrente = novaMoeda;
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        function alterarTemaVisual(novoTema) {
+            appState.temaCorrente = novoTema;
+            aplicarTemaVisual();
+            salvarDadosNoCloud();
+        }
+
+        function aplicarTemaVisual() {
+            if (appState.temaCorrente === 'claro') {
+                document.body.classList.add('tema-claro');
+            } else {
+                document.body.classList.remove('tema-claro');
+            }
+        }
+
+        function exportarExcel() {
+            const modoFiltro = document.getElementById('filtro-visualizacao-historico').value;
+            let dadosExportar = [];
+
+            if (modoFiltro === 'ano') {
+                for (let m = 0; m < 12; m++) {
+                    const dadosDoMes = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, m);
+                    dadosDoMes.movimentacoes.forEach(mov => {
+                        dadosExportar.push({
+                            Data: mov.data,
+                            Mês: mesesNomes[m],
+                            Descrição: mov.descricao,
+                            Tipo: mov.tipo === 'entrada' ? 'Entrada' : 'Saída',
+                            Valor: mov.valor,
+                            Moeda: appState.moedaCorrente
+                        });
+                    });
+                }
+            } else {
+                const dadosMês = obterDadosMes(appState.perfilCorrente, appState.anoCorrente, appState.mesCorrente);
+                dadosMês.movimentacoes.forEach(mov => {
+                    dadosExportar.push({
+                        Data: mov.data,
+                        Mês: mesesNomes[appState.mesCorrente],
+                        Descrição: mov.descricao,
+                        Tipo: mov.tipo === 'entrada' ? 'Entrada' : 'Saída',
+                        Valor: mov.valor,
+                        Moeda: appState.moedaCorrente
+                    });
+                });
+            }
+
+            if (dadosExportar.length === 0) {
+                return alert("Não há movimentações para exportar!");
+            }
+
+            const ws = XLSX.utils.json_to_sheet(dadosExportar);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
+
+            const nomeArquivo = `Aurora_Movimentacoes_${appState.perfilCorrente}_${appState.anoCorrente}_${modoFiltro === 'ano' ? 'Anual' : mesesNomes[appState.mesCorrente]}.xlsx`;
+            XLSX.writeFile(wb, nomeArquivo);
+        }
+
+        function mudarAnoCalendario(novoAno) {
+            appState.anoCorrente = novoAno;
+            processarLógicaFinanceiraMês();
+            salvarDadosNoCloud();
+        }
+
+        /**
+         * CALCULA A CONVERSÃO DE CÂMBIO UTILIZANDO AS TAXAS PTAX OBTIDAS DO BACEN
+         */
+        function calcularConversorCambio() {
+            const valBase = parseFloat(document.getElementById('conv-valor-base').value) || 1;
+            const deMoeda = document.getElementById('conv-moeda-origem').value;
+            const boxValores = document.getElementById('lista-cambio-valores');
+            if(!boxValores) return;
+            boxValores.innerHTML = "";
+
+            const taxaOrigemEmBrl = cotacoesBacenValores[deMoeda] || 1.0;
+
+            Object.keys(simbolosMoedas).forEach(m => {
+                if(m === deMoeda) return;
+                
+                const taxaDestinoEmBrl = cotacoesBacenValores[m] || 1.0;
+                // Converte de "deMoeda" para BRL e depois de BRL para "m"
+                const valorEmBrl = valBase * taxaOrigemEmBrl;
+                const convertido = valorEmBrl / taxaDestinoEmBrl;
+                
+                let div = document.createElement('div');
+                div.className = "item-cambio";
+                div.innerHTML = `<span>${m} (${simbolosMoedas[m]})</span><strong>${simbolosMoedas[m]} ${convertido.toFixed(2)}</strong>`;
+                boxValores.appendChild(div);
+            });
+        }
+
+        async function salvarDadosNoCloud() {
+            if (usuarioAtualId && window.authEnv) {
+                try {
+                    await window.authEnv.setDoc(window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId), appState);
+                } catch (e) { console.error(e); }
+            }
+        }
+
+        function fazerLogout() { 
+            if(window.authEnv && window.authEnv.signOut) {
+                window.authEnv.signOut(window.authEnv.auth); 
+            }
+        }
+    </script>
+</body>
+</html>
