@@ -1471,9 +1471,7 @@
                         <span>${cat.descricao || 'Categoria Personalizada'}</span>
                     </div>
                     <div class="cat-acoes">
-                        <input type="text" id="cat-${cat.id}" class="input-dinheiro" value="${formatarInput(val)}"> 
-                        <oninput="salvarCategoriaInput('${cat.id}', this.value)">
-                        <onblur="finalizarEdicaoCategoria('${cat.id}', this)">
+                        <input type="text" id="cat-${cat.id}" class="input-dinheiro" value="${formatarInput(val)}" oninput="salvarCategoriaInput('${cat.id}', this.value)">
                         <button class="btn-excluir-cat" title="Excluir Categoria" onclick="excluirCategoria('${cat.id}')">🗑️</button>
                     </div>
                 `;
