@@ -539,14 +539,16 @@
         const db = getFirestore(app);
 
         // Auth secundário para criar/excluir contas dos filhos sem desconectar o responsável.
-        const appProvisionamentoFilho = initializeApp(firebaseConfig, "aurora-child-provisioning");
-        const authProvisionamentoFilho = getAuth(appProvisionamentoFilho);
+        // Uma segunda instância do Firebase permite manter a conta principal
+        // conectada enquanto outra conta é adicionada/alternada neste mesmo celular.
+        const appContaAlternativa = initializeApp(firebaseConfig, "aurora-secondary-account");
+        const authContaAlternativa = getAuth(appContaAlternativa);
 
         window.authEnv = { 
             auth, db, doc, setDoc, getDoc, deleteDoc, signOut, deleteUser,
             criarUsuario: createUserWithEmailAndPassword,
             fazerLogin: signInWithEmailAndPassword,
-            authProvisionamentoFilho
+            authContaAlternativa
         };
     </script>
 </head>
@@ -559,24 +561,7 @@
         <input type="password" id="auth-password" class="input-login" placeholder="Sua senha">
         <button class="btn-blue" id="btn-auth-principal" onclick="executarAutenticacao()">Entrar</button>
         <button class="btn-top-util" style="border:none; margin:auto;" id="btn-auth-alternar" onclick="alternarModoAuth()">Não tem uma conta? Cadastre-se</button>
-    </div>
 
-    <!-- TELA DE SETUP INICIAL: PERGUNTA SOBRE FILHOS -->
-    <div id="tela-filhos" class="tela-fluxo hidden">
-        <h2 id="txt-setup-titulo">Personalize seu Horizonte</h2>
-        <p id="txt-setup-sub" style="color: var(--text-muted); font-size: 0.9rem;">Você possui filhos?</p>
-        
-        <div class="opcoes-filhos">
-            <button class="btn-opcao" id="opt-filhos-sim" onclick="selecionarOpcaoFilhos(true)">Sim</button>
-            <button class="btn-opcao" id="opt-filhos-nao" onclick="selecionarOpcaoFilhos(false)">Não</button>
-        </div>
-        
-        <div id="box-quantidade-filhos" class="hidden" style="width: 100%; margin-top: 8px;">
-            <p id="txt-qtd-filhos-lbl" style="font-size: 0.85rem; margin-bottom: 8px; text-align: left; color: var(--text-muted);">Quantos filhos você tem?</p>
-            <input type="number" id="input-qtd-filhos" class="input-login" min="1" placeholder="Ex: 2">
-        </div>
-
-        <button class="btn-blue" id="btn-concluir-setup" style="margin-top: 12px;" onclick="concluirSetupInicial()">Concluir Configuração</button>
     </div>
 
     <!-- CONTAINER PRINCIPAL -->
@@ -594,14 +579,14 @@
             </div>
         </header>
 
-        <!-- SELEÇÃO DE PERFIL -->
+        <!-- PERFIL LOCAL + CONTAS AURORA NESTE CELULAR -->
         <div class="perfil-row">
             <select class="select-custom" id="select-perfil-usuario" onchange="alterarPerfilAtivo(this.value)">
                 <option value="Principal">Principal (Padrão)</option>
             </select>
-            <button class="btn-blue" id="btn-novo-perfil" onclick="criarNovoPerfil()">+ Nova Conta do Filho</button>
+            <button class="btn-blue" id="btn-outra-conta-app" onclick="adicionarOutraContaNoCelular()">＋ Outra conta</button>
         </div>
-        <div id="lista-contas-filhos" style="max-width:900px; margin:8px auto 12px; padding:0 4px;"></div>
+        <div id="contas-conectadas-info" style="max-width:900px; margin:8px auto 12px; padding:0 4px;"></div>
 
         <!-- SCROLL DOS MESES -->
         <div class="meses-scroll" id="container-meses-botoes"></div>
@@ -811,6 +796,11 @@
     <script>
         let modoCadastro = false;
         let usuarioAtualId = null;
+        let proprietarioDadosAtivosUid = null;
+        let contasAuroraNoCelular = [];
+        let contaAuroraAtivaUid = null;
+        let contaPrincipalMeta = null;
+        const contasAuroraMeta = new Map();
         let saldosOcultados = false;
         
         // DICIONÁRIO MULTI-IDIOMAS
@@ -820,10 +810,10 @@
                 authEntrar: "Entrar no Aurora", authCadastrar: "Cadastrar no Aurora",
                 btnEntrar: "Entrar", btnCadastrar: "Cadastrar",
                 linkCadastrar: "Não tem uma conta? Cadastre-se", linkEntrar: "Já tem conta? Faça Login",
-                setupTitulo: "Personalize seu Horizonte", setupSub: "Você possui filhos?",
-                optSim: "Sim", optNao: "Não", qtdFilhosLbl: "Quantos filhos você tem?",
+                setupTitulo: "Personalize seu Horizonte", setupSub: "",
+                optSim: "Sim", optNao: "Não", qtdFilhosLbl: "",
                 btnConcluirSetup: "Concluir Configuração", logoutMenu: "Ir para tela inicial",
-                btnCfgHeader: "⚙️ Configurações", btnNovoPerfil: "+ Nova Conta do Filho",
+                btnCfgHeader: "⚙️ Configurações", btnNovoPerfil: "＋ Outra conta",
                 subAba1: "📊 Visão Geral", subAba2: "📋 Planilhas", subAba3: "📂 Categorias", subAba4: "📅 Histórico Anual",
                 lblVisaoGeral: "Visão Geral", btnOcultar: "👁️ Ocultar", btnMostrar: "👁️ Mostrar",
                 lblSaldoAnterior: "SALDO ANTERIOR", lblNovoSaldoFinal: "NOVO SALDO FINAL",
@@ -1125,56 +1115,79 @@
         }
 
         async function executarAutenticacao() {
-            const email = document.getElementById('auth-email').value;
+            const email = document.getElementById('auth-email').value.trim().toLowerCase();
             const password = document.getElementById('auth-password').value;
             if (!email || !password) return alert("Preencha os campos!");
             try {
                 if (modoCadastro) {
-                    await window.authEnv.criarUsuario(window.authEnv.auth, email, password);
+                    const credencial = await window.authEnv.criarUsuario(window.authEnv.auth, email, password);
+                    const uid = credencial.user.uid;
+                    const estadoInicial = {
+                        ...appState,
+                        contasFilhos: [],
+                        possuiFilhos: false,
+                        qtdFilhos: 0,
+                        emailConta: email,
+                        criadoEm: new Date().toISOString()
+                    };
+                    await window.authEnv.setDoc(window.authEnv.doc(window.authEnv.db, "usuarios", uid), estadoInicial);
                 } else {
                     await window.authEnv.fazerLogin(window.authEnv.auth, email, password);
                 }
             } catch (e) { alert("Erro: " + e.message); }
         }
-
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('mov-data').valueAsDate = new Date();
+            // Se uma conta alternativa já estava conectada neste navegador, o Firebase a restaura automaticamente.
+            if (window.authEnv?.authContaAlternativa) {
+                window.authEnv.authContaAlternativa.onAuthStateChanged(async (altUser) => {
+                    if (altUser && altUser.uid !== usuarioAtualId) {
+                        try {
+                            const altSnap = await window.authEnv.getDoc(window.authEnv.doc(window.authEnv.db, 'usuarios', altUser.uid));
+                            if (altSnap.exists()) {
+                                contasAuroraMeta.clear();
+                                contasAuroraMeta.set(altUser.uid, { uid: altUser.uid, email: altUser.email || altSnap.data().emailConta || '', nome: altSnap.data().nomeConta || altSnap.data().nome || altUser.email || 'Outra conta', tipo: 'alternativa' });
+                                atualizarListaContasAurora();
+                            }
+                        } catch (e) { console.error('Erro ao restaurar conta alternativa:', e); }
+                    }
+                });
+            }
+
             const verificarAuth = setInterval(() => {
                 if (window.authEnv && window.authEnv.auth) {
                     clearInterval(verificarAuth);
                     window.authEnv.auth.onAuthStateChanged(async (user) => {
                         if (user) {
                             usuarioAtualId = user.uid;
+                            proprietarioDadosAtivosUid = user.uid;
+                            contaAuroraAtivaUid = user.uid;
+                            contaPrincipalMeta = { uid: user.uid, email: user.email || '', nome: 'Conta principal', tipo: 'principal' };
                             document.getElementById('tela-autenticacao').classList.add('hidden');
-                            
+                            document.getElementById('app-container').classList.remove('hidden');
+
                             const docRef = window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId);
                             const docSnap = await window.authEnv.getDoc(docRef);
 
                             if (docSnap.exists()) {
                                 appState = { ...appState, ...docSnap.data() };
-                                normalizarEstadoFinanceiro();
-                                if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
-                                if(!Array.isArray(appState.contasFilhos)) appState.contasFilhos = [];
-                                if(!appState.perfilCorrente || !appState.perfisCadastrados.includes(appState.perfilCorrente)) appState.perfilCorrente = "Principal";
-                                if(!appState.temaCorrente) appState.temaCorrente = "escuro";
-                                if(!appState.idiomaCorrente) appState.idiomaCorrente = "pt";
-                                garantirCategoriasDoPerfil(appState.perfilCorrente);
-                                aplicarTemaVisual();
-                                aplicarIdiomaTextos();
-                                atualizarSelectPerfis();
-                                renderizarListaContasFilhos();
-                                inicializarSelectAnos();
-                                renderizarMesesBotoes();
-
-                                if (appState.possuiFilhos === undefined) {
-                                    document.getElementById('tela-filhos').classList.remove('hidden');
-                                } else {
-                                    abrirAppPrincipal();
-                                }
                             } else {
-                                aplicarIdiomaTextos();
-                                document.getElementById('tela-filhos').classList.remove('hidden');
+                                appState = { ...appState, emailConta: user.email || '' };
+                                await salvarDadosNoCloud();
                             }
+                            normalizarEstadoFinanceiro();
+                            if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
+                            if(!appState.perfilCorrente || !appState.perfisCadastrados.includes(appState.perfilCorrente)) appState.perfilCorrente = "Principal";
+                            if(!appState.temaCorrente) appState.temaCorrente = "escuro";
+                            if(!appState.idiomaCorrente) appState.idiomaCorrente = "pt";
+                            garantirCategoriasDoPerfil(appState.perfilCorrente);
+                            aplicarTemaVisual();
+                            aplicarIdiomaTextos();
+                            atualizarSelectPerfis();
+                            atualizarListaContasAurora();
+                            inicializarSelectAnos();
+                            renderizarMesesBotoes();
+                            abrirAppPrincipal();
                         } else {
                             document.getElementById('app-container').classList.add('hidden');
                             document.getElementById('tela-autenticacao').classList.remove('hidden');
@@ -1203,17 +1216,12 @@
             document.getElementById('auth-titulo').innerText = modoCadastro ? t.authCadastrar : t.authEntrar;
             document.getElementById('btn-auth-principal').innerText = modoCadastro ? t.btnCadastrar : t.btnEntrar;
             document.getElementById('btn-auth-alternar').innerText = modoCadastro ? t.linkEntrar : t.linkCadastrar;
-            document.getElementById('txt-setup-titulo').innerText = t.setupTitulo;
-            document.getElementById('txt-setup-sub').innerText = t.setupSub;
-            document.getElementById('opt-filhos-sim').innerText = t.optSim;
-            document.getElementById('opt-filhos-nao').innerText = t.optNao;
-            document.getElementById('txt-qtd-filhos-lbl').innerText = t.qtdFilhosLbl;
-            document.getElementById('btn-concluir-setup').innerText = t.btnConcluirSetup;
             document.getElementById('btn-menu-logout').innerText = t.logoutMenu;
 
             // Interface
             document.getElementById('btn-cfg-header').innerText = t.btnCfgHeader;
-            document.getElementById('btn-novo-perfil').innerText = t.btnNovoPerfil;
+            const btnOutraConta = document.getElementById('btn-outra-conta-app');
+            if (btnOutraConta) btnOutraConta.innerText = t.btnNovoPerfil || '＋ Outra conta';
             document.getElementById('sub-aba-1').innerText = t.subAba1;
             document.getElementById('sub-aba-2').innerText = t.subAba2;
             document.getElementById('sub-aba-3').innerText = t.subAba3;
@@ -1282,177 +1290,118 @@
             }
         }
 
-        /* --- FLUXO DE SELEÇÃO DE FILHOS --- */
-        function selecionarOpcaoFilhos(opcao) {
-            appState.possuiFilhos = opcao;
-            document.getElementById('opt-filhos-sim').classList.toggle('selecionado', opcao === true);
-            document.getElementById('opt-filhos-nao').classList.toggle('selecionado', opcao === false);
-            
-            const boxQtd = document.getElementById('box-quantidade-filhos');
-            if (opcao === true) {
-                boxQtd.classList.remove('hidden');
-            } else {
-                boxQtd.classList.add('hidden');
-                document.getElementById('input-qtd-filhos').value = "";
-                appState.qtdFilhos = 0;
+        async function adicionarOutraContaNoCelular() {
+            const email = prompt("E-mail da outra conta Aurora:");
+            if (email === null) return;
+            const emailLimpo = email.trim().toLowerCase();
+            if (!emailLimpo) return alert("Informe o e-mail da conta.");
+
+            const senha = prompt("Senha da outra conta Aurora:");
+            if (senha === null) return;
+            if (!senha) return alert("Informe a senha da conta.");
+
+            if (emailLimpo === String(contaPrincipalMeta?.email || '').toLowerCase()) {
+                return alert("Essa conta já está conectada neste celular.");
+            }
+
+            try {
+                const authAlt = window.authEnv.authContaAlternativa;
+                const cred = await window.authEnv.fazerLogin(authAlt, emailLimpo, senha);
+                const uid = cred.user.uid;
+                const snap = await window.authEnv.getDoc(window.authEnv.doc(window.authEnv.db, "usuarios", uid));
+
+                if (!snap.exists()) {
+                    await window.authEnv.signOut(authAlt);
+                    return alert("A conta existe no Firebase Authentication, mas os dados do Aurora não foram encontrados.");
+                }
+
+                contasAuroraMeta.clear();
+                contasAuroraMeta.set(uid, {
+                    uid,
+                    email: emailLimpo,
+                    nome: snap.data().nomeConta || snap.data().nome || emailLimpo,
+                    tipo: 'alternativa'
+                });
+                await carregarContaAurora(uid, snap.data());
+                alert(`✅ Conta liberada com sucesso!\n\nAgora você está usando ${emailLimpo}.\n\nOs dados desta conta ficam totalmente separados da outra.`);
+            } catch (erro) {
+                console.error("Erro ao adicionar outra conta:", erro);
+                const codigo = erro?.code || '';
+                if (codigo.includes('user-not-found') || codigo.includes('invalid-credential') || codigo.includes('invalid-email')) {
+                    alert("❌ Conta não encontrada ou e-mail/senha incorretos.");
+                } else if (codigo.includes('wrong-password')) {
+                    alert("❌ Senha incorreta. A conta não foi liberada.");
+                } else {
+                    alert("Não foi possível liberar essa conta: " + (erro?.message || erro));
+                }
             }
         }
 
-        async function concluirSetupInicial() {
-            if (appState.possuiFilhos === undefined) return alert("Selecione Sim ou Não!");
-
-            if (appState.possuiFilhos === true) {
-                const qtd = parseInt(document.getElementById('input-qtd-filhos').value);
-                if (isNaN(qtd) || qtd <= 0) return alert("Insira a quantidade de filhos!");
-                appState.qtdFilhos = qtd;
-
-                garantirCategoriasDoPerfil(appState.perfilCorrente);
-                const categoriasPerfil = appState.categoriasPorPerfil[appState.perfilCorrente];
-                const existeEscola = categoriasPerfil.some(c => c.id === 'escola');
-                if (!existeEscola) {
-                    categoriasPerfil.push({
-                        id: 'escola',
-                        nome: 'Escola / Educação',
-                        descricao: `Gastos educacionais de ${appState.qtdFilhos} filho(s)`,
-                        tipo: 'saida'
-                    });
-                } else {
-                    let catEscola = categoriasPerfil.find(c => c.id === 'escola');
-                    catEscola.descricao = `Gastos educacionais de ${appState.qtdFilhos} filho(s)`;
-                }
-                appState.categoriasCustom = categoriasPerfil;
-            } else {
-                garantirCategoriasDoPerfil(appState.perfilCorrente);
-                appState.categoriasPorPerfil[appState.perfilCorrente] =
-                    appState.categoriasPorPerfil[appState.perfilCorrente].filter(c => c.id !== 'escola');
-                appState.categoriasCustom = appState.categoriasPorPerfil[appState.perfilCorrente];
-                appState.qtdFilhos = 0;
+        async function carregarContaAurora(uid, dados) {
+            // Salva a conta que estava aberta antes de trocar.
+            await salvarDadosNoCloud();
+            appState = { ...appState, ...dados };
+            proprietarioDadosAtivosUid = uid;
+            contaAuroraAtivaUid = uid;
+            normalizarEstadoFinanceiro();
+            if (!Array.isArray(appState.perfisCadastrados) || !appState.perfisCadastrados.length) {
+                appState.perfisCadastrados = ['Principal'];
             }
-
-            document.getElementById('tela-filhos').classList.add('hidden');
-            if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
-            if(!appState.perfilCorrente) appState.perfilCorrente = "Principal";
+            if (!appState.perfilCorrente || !appState.perfisCadastrados.includes(appState.perfilCorrente)) {
+                appState.perfilCorrente = 'Principal';
+            }
+            garantirCategoriasDoPerfil(appState.perfilCorrente);
+            aplicarTemaVisual();
+            aplicarIdiomaTextos();
             atualizarSelectPerfis();
-            renderizarListaContasFilhos();
+            atualizarListaContasAurora();
             inicializarSelectAnos();
             renderizarMesesBotoes();
-            abrirAppPrincipal();
-            salvarDadosNoCloud();
+            processarLógicaFinanceiraMês();
+            renderizarHistoricoAnual();
         }
 
-        async function criarNovoPerfil() {
+        async function trocarContaAurora(uid) {
+            if (!uid || uid === proprietarioDadosAtivosUid) return;
             try {
-                if (!usuarioAtualId || !window.authEnv) return alert("Faça login primeiro.");
-                if (!Array.isArray(appState.contasFilhos)) appState.contasFilhos = [];
-
-                const nome = prompt("Nome do filho:");
-                if (nome === null) return;
-                const nomeFilho = nome.trim();
-                if (!nomeFilho) return alert("Digite o nome do filho.");
-
-                const email = prompt("E-mail que o filho usará para entrar no Aurora:");
-                if (email === null) return;
-                const emailFilho = email.trim().toLowerCase();
-                if (!emailFilho || !emailFilho.includes("@")) return alert("Digite um e-mail válido.");
-
-                const senha = prompt("Crie uma senha para o filho (mínimo 6 caracteres):");
-                if (senha === null) return;
-                if (senha.length < 6) return alert("A senha precisa ter pelo menos 6 caracteres.");
-
-                if (appState.contasFilhos.some(c => String(c.email || '').toLowerCase() === emailFilho)) {
-                    return alert("Este e-mail já está cadastrado como conta de filho.");
-                }
-
-                const authFilho = window.authEnv.authProvisionamentoFilho;
-                if (!authFilho) return alert("O módulo de criação de contas não foi carregado. Recarregue a página.");
-
-                const credencial = await window.authEnv.criarUsuario(authFilho, emailFilho, senha);
-                const uidFilho = credencial.user.uid;
-
-                const estadoFilho = {
-                    anoCorrente: new Date().getFullYear().toString(),
-                    mesCorrente: new Date().getMonth(),
-                    moedaCorrente: "BRL", temaCorrente: "escuro",
-                    idiomaCorrente: appState.idiomaCorrente || "pt",
-                    perfilCorrente: "Principal", perfisCadastrados: ["Principal"],
-                    contasFilhos: [], possuiFilhos: false, qtdFilhos: 0,
-                    categoriasCustom: JSON.parse(JSON.stringify(CATEGORIAS_PADRAO)),
-                    categoriasPorPerfil: { Principal: JSON.parse(JSON.stringify(CATEGORIAS_PADRAO)) },
-                    dadosFinanceiros: {},
-                    contaVinculadaAoResponsavel: usuarioAtualId,
-                    nomeConta: nomeFilho
-                };
-
-                await window.authEnv.setDoc(window.authEnv.doc(window.authEnv.db, "usuarios", uidFilho), estadoFilho);
-                appState.contasFilhos.push({ uid: uidFilho, nome: nomeFilho, email: emailFilho, criadaEm: new Date().toISOString() });
                 await salvarDadosNoCloud();
-                await window.authEnv.signOut(authFilho);
-                renderizarListaContasFilhos();
-
-                alert(`Conta de ${nomeFilho} criada com sucesso!\n\nE-mail: ${emailFilho}\n\nEle pode usar esse e-mail e essa senha para entrar no Aurora em qualquer celular.`);
+                let snap;
+                if (uid === usuarioAtualId) {
+                    snap = await window.authEnv.getDoc(window.authEnv.doc(window.authEnv.db, 'usuarios', uid));
+                } else {
+                    const conta = contasAuroraMeta.get(uid);
+                    if (!conta) return;
+                    if (!window.authEnv.authContaAlternativa.currentUser || window.authEnv.authContaAlternativa.currentUser.uid !== uid) {
+                        return alert('A sessão dessa conta não está mais disponível. Use “＋ Outra conta” para conectá-la novamente.');
+                    }
+                    snap = await window.authEnv.getDoc(window.authEnv.doc(window.authEnv.db, 'usuarios', uid));
+                }
+                if (!snap.exists()) return alert('Essa conta não existe mais no Aurora.');
+                await carregarContaAurora(uid, snap.data());
             } catch (erro) {
-                console.error("Erro ao criar conta do filho:", erro);
-                const codigo = erro?.code || "";
-                if (codigo.includes("email-already-in-use")) alert("Esse e-mail já possui uma conta no Firebase.");
-                else if (codigo.includes("invalid-email")) alert("O e-mail informado é inválido.");
-                else if (codigo.includes("weak-password")) alert("A senha é muito fraca. Use pelo menos 6 caracteres.");
-                else alert("Não foi possível criar a conta do filho: " + (erro?.message || erro));
+                console.error(erro);
+                alert('Não foi possível trocar de conta: ' + (erro?.message || erro));
             }
         }
 
-        function renderizarListaContasFilhos() {
-            const box = document.getElementById('lista-contas-filhos');
+        function atualizarListaContasAurora() {
+            const box = document.getElementById('contas-conectadas-info');
             if (!box) return;
-            const contas = Array.isArray(appState.contasFilhos) ? appState.contasFilhos : [];
-            if (!contas.length) {
-                box.innerHTML = '<div style="color:var(--text-muted); font-size:.85rem;">Nenhuma conta de filho criada.</div>';
+            const contas = [];
+            if (contaPrincipalMeta?.uid) contas.push(contaPrincipalMeta);
+            for (const c of contasAuroraMeta.values()) contas.push(c);
+            if (!contas.length) return;
+            if (contas.length === 1) {
+                box.innerHTML = `<div style="font-size:.78rem;color:var(--text-muted);text-align:center;">Conta atual: <strong>${escapeHtml(contas[0].email || 'principal')}</strong></div>`;
                 return;
             }
-            box.innerHTML = contas.map((c, i) => `
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);">
-                    <div style="min-width:0;"><strong>${escapeHtml(c.nome || 'Filho')}</strong><div style="font-size:.78rem; color:var(--text-muted);">${escapeHtml(c.email || '')}</div></div>
-                    <button class="btn-top-util" style="color:#f43f5e; border-color:#f43f5e; flex-shrink:0;" onclick="excluirContaFilho(${i})">Excluir</button>
-                </div>`).join('');
-        }
-
-        function escapeHtml(valor) {
-            return String(valor ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-        }
-
-        async function excluirContaFilho(indice) {
-            try {
-                const contas = Array.isArray(appState.contasFilhos) ? appState.contasFilhos : [];
-                const conta = contas[indice];
-                if (!conta) return;
-                if (!confirm(`Excluir a conta de ${conta.nome}?\n\nIsso apagará permanentemente o login e TODOS os dados financeiros dessa conta.`)) return;
-
-                const email = prompt(`Para confirmar, digite o e-mail da conta:\n${conta.email}`);
-                if (email === null) return;
-                if (email.trim().toLowerCase() !== String(conta.email).toLowerCase()) return alert("O e-mail não confere. A conta não foi excluída.");
-                const senha = prompt("Digite a senha atual dessa conta para confirmar a exclusão:");
-                if (senha === null || !senha) return alert("Digite a senha para continuar.");
-
-                const authFilho = window.authEnv.authProvisionamentoFilho;
-                const credencial = await window.authEnv.fazerLogin(authFilho, conta.email, senha);
-                if (credencial.user.uid !== conta.uid) {
-                    await window.authEnv.signOut(authFilho);
-                    return alert("Essa conta não corresponde ao cadastro salvo pelo responsável.");
-                }
-                await window.authEnv.deleteDoc(window.authEnv.doc(window.authEnv.db, "usuarios", conta.uid));
-                await window.authEnv.deleteUser(credencial.user);
-                await window.authEnv.signOut(authFilho);
-
-                appState.contasFilhos.splice(indice, 1);
-                await salvarDadosNoCloud();
-                renderizarListaContasFilhos();
-                alert("Conta do filho e todos os dados foram excluídos com sucesso.");
-            } catch (erro) {
-                console.error("Erro ao excluir conta do filho:", erro);
-                if (window.authEnv?.authProvisionamentoFilho) { try { await window.authEnv.signOut(window.authEnv.authProvisionamentoFilho); } catch (_) {} }
-                if (erro?.code === 'auth/wrong-password' || erro?.code === 'auth/invalid-credential') alert("Senha incorreta. A conta não foi excluída.");
-                else if (erro?.code === 'auth/user-not-found') alert("Essa conta não foi encontrada no Firebase.");
-                else alert("Não foi possível excluir a conta do filho: " + (erro?.message || erro));
-            }
+            box.innerHTML = `<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px;text-align:center;">Contas conectadas neste celular:</div>` + contas.map(c => {
+                const ativa = c.uid === proprietarioDadosAtivosUid;
+                return `<button onclick="trocarContaAurora('${escapeHtml(c.uid)}')" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;margin:4px 0;border:1px solid ${ativa ? '#0066ff' : 'var(--border)'};border-radius:10px;background:${ativa ? 'rgba(0,102,255,.08)' : 'transparent'};color:var(--text-main);cursor:pointer;text-align:left;">
+                    <span><strong>${escapeHtml(c.nome || 'Conta Aurora')}</strong><br><small style="color:var(--text-muted)">${escapeHtml(c.email || '')}</small></span>
+                    <span style="font-size:.75rem;color:${ativa ? '#0066ff' : 'var(--text-muted)'}">${ativa ? 'ATIVA' : 'Trocar'}</span>
+                </button>`;
+            }).join('');
         }
 
         function atualizarSelectPerfis() {
@@ -1501,6 +1450,7 @@
             document.getElementById('cfg-tema').value = appState.temaCorrente;
             document.getElementById('cfg-idioma').value = appState.idiomaCorrente || 'pt';
             processarLógicaFinanceiraMês();
+            atualizarListaContasAurora();
         }
 
         function mudarSubAba(abaId) {
@@ -2096,15 +2046,20 @@
         }
 
         async function salvarDadosNoCloud() {
-            if (usuarioAtualId && window.authEnv) {
+            const uidDestino = proprietarioDadosAtivosUid || usuarioAtualId;
+            if (uidDestino && window.authEnv) {
                 try {
-                    await window.authEnv.setDoc(window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId), appState);
-                } catch (e) { console.error(e); }
+                    await window.authEnv.setDoc(window.authEnv.doc(window.authEnv.db, "usuarios", uidDestino), appState);
+                } catch (e) {
+                    console.error(e);
+                    alert("Não foi possível salvar os dados desta conta. Verifique as regras de acesso do Firestore.");
+                }
             }
         }
 
         async function excluirContaCompleta() {
-            if (!usuarioAtualId || !window.authEnv) return;
+            const uidAtivo = proprietarioDadosAtivosUid || usuarioAtualId;
+            if (!uidAtivo || !window.authEnv) return;
 
             const confirmou = confirm(
                 "ATENÇÃO: isso apagará permanentemente a conta e TODOS os dados financeiros salvos no Aurora.\n\nDeseja continuar?"
@@ -2112,17 +2067,33 @@
             if (!confirmou) return;
 
             try {
-                const user = window.authEnv.auth.currentUser;
-                if (!user) return;
+                const ehPrincipal = uidAtivo === usuarioAtualId;
+                const authAtivo = ehPrincipal ? window.authEnv.auth : window.authEnv.authContaAlternativa;
+                const user = authAtivo?.currentUser;
+                if (!user || user.uid !== uidAtivo) return alert("A sessão desta conta não está disponível. Entre novamente para excluí-la.");
 
                 // Remove primeiro os dados do Firestore para não deixar o documento órfão.
                 await window.authEnv.deleteDoc(
-                    window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId)
+                    window.authEnv.doc(window.authEnv.db, "usuarios", uidAtivo)
                 );
 
                 await window.authEnv.deleteUser(user);
 
-                usuarioAtualId = null;
+                if (ehPrincipal) {
+                    usuarioAtualId = null;
+                    contaPrincipalMeta = null;
+                    proprietarioDadosAtivosUid = null;
+                    contaAuroraAtivaUid = null;
+                    await window.authEnv.signOut(window.authEnv.auth);
+                } else {
+                    contasAuroraMeta.delete(uidAtivo);
+                    await window.authEnv.signOut(window.authEnv.authContaAlternativa);
+                    // Volta para a conta principal sem misturar os dados.
+                    const snapPrincipal = await window.authEnv.getDoc(window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId));
+                    if (snapPrincipal.exists()) {
+                        await carregarContaAurora(usuarioAtualId, snapPrincipal.data());
+                    }
+                }
                 appState = {
                     anoCorrente: new Date().getFullYear().toString(),
                     mesCorrente: new Date().getMonth(),
@@ -2138,7 +2109,7 @@
                     dadosFinanceiros: {}
                 };
 
-                alert("Conta e dados apagados com sucesso.");
+                alert(ehPrincipal ? "Conta e dados apagados com sucesso." : "Conta alternativa e dados apagados com sucesso. Você voltou para a conta principal.");
             } catch (e) {
                 console.error(e);
                 alert("Não foi possível excluir a conta agora. O Firebase pode exigir um novo login antes de apagar a conta.");
@@ -2148,6 +2119,11 @@
         function fazerLogout() { 
             // Limpa o estado em memória para que um perfil/conta nunca apareça na próxima sessão.
             usuarioAtualId = null;
+            proprietarioDadosAtivosUid = null;
+            contaAuroraAtivaUid = null;
+            contaPrincipalMeta = null;
+            contasAuroraMeta.clear();
+            contasAuroraNoCelular = [];
             appState = {
                 anoCorrente: new Date().getFullYear().toString(),
                 mesCorrente: new Date().getMonth(),
@@ -2165,10 +2141,10 @@
 
             document.getElementById('app-container').classList.add('hidden');
             document.getElementById('sidebar-config').classList.add('hidden');
-            document.getElementById('tela-filhos').classList.add('hidden');
 
             if(window.authEnv && window.authEnv.signOut) {
                 window.authEnv.signOut(window.authEnv.auth);
+                if (window.authEnv.authContaAlternativa) window.authEnv.signOut(window.authEnv.authContaAlternativa);
             }
         }
     </script>
