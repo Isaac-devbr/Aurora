@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -96,6 +97,33 @@
             border-color: #0066ff;
             color: #ffffff;
         }
+
+        .verification-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 4px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,102,255,.12);
+            font-size: 2rem;
+        }
+
+        .verification-email {
+            color: #0066ff;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .verification-status {
+            min-height: 22px;
+            font-size: .85rem;
+            color: var(--text-muted);
+        }
+
+        .verification-status.erro { color: #f43f5e; }
+        .verification-status.sucesso { color: #10b981; }
 
         /* --- HEADER PRINCIPAL --- */
         #app-container {
@@ -521,7 +549,7 @@
     <!-- CONFIGURAÇÃO DO FIREBASE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, sendEmailVerification, reload } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -543,12 +571,14 @@
         // conectada enquanto outra conta é adicionada/alternada neste mesmo celular.
         const appContaAlternativa = initializeApp(firebaseConfig, "aurora-secondary-account");
         const authContaAlternativa = getAuth(appContaAlternativa);
+        const dbContaAlternativa = getFirestore(appContaAlternativa);
 
         window.authEnv = { 
-            auth, db, doc, setDoc, getDoc, deleteDoc, signOut, deleteUser,
+            auth, db, doc, setDoc, getDoc, deleteDoc, signOut, deleteUser, sendPasswordResetEmail, sendEmailVerification, reload,
             criarUsuario: createUserWithEmailAndPassword,
             fazerLogin: signInWithEmailAndPassword,
-            authContaAlternativa
+            authContaAlternativa, dbContaAlternativa,
+            EmailAuthProvider, reauthenticateWithCredential
         };
     </script>
 </head>
@@ -561,12 +591,14 @@
         <input type="password" id="auth-password" class="input-login" placeholder="Sua senha">
 
         <button class="btn-blue" id="btn-auth-principal" onclick="executarAutenticacao()">Entrar</button>
+        <button class="btn-top-util" type="button" onclick="redefinirSenhaAurora()">Esqueci minha senha</button>
         <button class="btn-top-util" style="border:none; margin:auto;" id="btn-auth-alternar" onclick="alternarModoAuth()">Não tem uma conta? Cadastre-se</button>
 
     </div>
 
-    <!-- CONFIGURAÇÃO INICIAL APÓS O CADASTRO -->
+    <!-- CONFIGURAÇÃO INICIAL APÓS O CADASTRO: aparece somente depois de criar uma nova conta e antes do app -->
     <div id="pagina-setup-cadastro" class="tela-fluxo hidden">
+
         <h2 style="color:#0066ff; margin:0;">Vamos configurar sua conta</h2>
         <p style="color:var(--text-muted); margin:0; text-align:center;">Antes de entrar no Aurora, responda algumas perguntas.</p>
         <div style="width:100%; text-align:left;">
@@ -585,6 +617,23 @@
             </div>
         </div>
         <button class="btn-blue" onclick="concluirSetupCadastro()">Continuar para o Aurora</button>
+    </div>
+
+    <!-- VERIFICAÇÃO DE E-MAIL -->
+    <div id="pagina-verificacao-email" class="tela-fluxo hidden">
+        <div class="verification-icon">✉️</div>
+        <h2 style="color:#0066ff; margin:0;">Verifique seu e-mail</h2>
+        <p style="color:var(--text-muted); margin:0; line-height:1.5;">
+            Enviamos um link de verificação para:
+        </p>
+        <div id="verification-email" class="verification-email"></div>
+        <p style="color:var(--text-muted); margin:0; line-height:1.5;">
+            Abra o e-mail e clique no link de verificação. Depois volte para esta página e clique em <strong>Já verifiquei meu e-mail</strong>.
+        </p>
+        <button class="btn-blue" id="btn-confirmar-verificacao" onclick="confirmarVerificacaoEmail()">Já verifiquei meu e-mail</button>
+        <button class="btn-top-util" id="btn-reenviar-verificacao" onclick="reenviarVerificacaoEmail()">Reenviar e-mail</button>
+        <div id="verification-status" class="verification-status"></div>
+        <button class="btn-top-util" style="border:none; margin:auto;" onclick="voltarTelaAutenticacao()">Voltar</button>
     </div>
 
     <!-- CONTAINER PRINCIPAL -->
@@ -817,11 +866,215 @@
     </div>
 
     <script>
+
+function abrirConfiguracaoInicialCadastro(uid) {
+    setupUidPendente = uid;
+    usuarioAtualId = uid;
+    proprietarioDadosAtivosUid = uid;
+    contaAuroraAtivaUid = uid;
+
+    sessionStorage.setItem('auroraSetupUidPendente', uid);
+    sessionStorage.setItem('auroraCadastroPendenteSetup', '1');
+    sessionStorage.removeItem('auroraAguardandoVerificacao');
+
+    aguardandoSetupCadastro = true;
+    fluxoVerificacaoAposCadastro = false;
+
+    document.getElementById("tela-autenticacao")?.classList.add("hidden");
+    document.getElementById("app-container")?.classList.add("hidden");
+    document.getElementById("pagina-verificacao-email")?.classList.add("hidden");
+
+    const setup = document.getElementById("pagina-setup-cadastro");
+    if (setup) setup.classList.remove("hidden");
+
+    possuiFilhosCadastro = null;
+    const wrap = document.getElementById("setup-qtd-filhos-wrap");
+    if (wrap) wrap.classList.add("hidden");
+    document.getElementById("setup-filhos-sim")?.style.removeProperty("border-color");
+    document.getElementById("setup-filhos-nao")?.style.removeProperty("border-color");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function abrirTelaVerificacaoEmail(email) {
+    aguardandoSetupCadastro = false;
+    fluxoVerificacaoAposCadastro = true;
+
+    sessionStorage.removeItem("auroraCadastroPendenteSetup");
+    sessionStorage.setItem("auroraAguardandoVerificacao", "1");
+
+    document.getElementById("tela-autenticacao")?.classList.add("hidden");
+    document.getElementById("pagina-setup-cadastro")?.classList.add("hidden");
+    document.getElementById("app-container")?.classList.add("hidden");
+
+    const tela = document.getElementById("pagina-verificacao-email");
+    if (tela) tela.classList.remove("hidden");
+
+    const emailEl = document.getElementById("verification-email");
+    if (emailEl) emailEl.textContent = email || "seu e-mail";
+
+    const status = document.getElementById("verification-status");
+    if (status) {
+        status.className = "verification-status";
+        status.textContent = "Confira também a pasta de spam ou lixo eletrônico.";
+    }
+}
+
+function liberarAposConfiguracaoInicial() {
+    sessionStorage.removeItem("auroraCadastroPendenteSetup");
+    sessionStorage.removeItem("auroraSetupUidPendente");
+    sessionStorage.removeItem("auroraAguardandoVerificacao");
+    aguardandoSetupCadastro = false;
+    fluxoVerificacaoAposCadastro = false;
+    setupUidPendente = null;
+
+    const setup = document.getElementById("pagina-setup-cadastro");
+    const verificacao = document.getElementById("pagina-verificacao-email");
+    const authTela = document.getElementById("tela-autenticacao");
+    const app = document.getElementById("app-container");
+
+    if (setup) setup.classList.add("hidden");
+    if (verificacao) verificacao.classList.add("hidden");
+    if (authTela) authTela.classList.add("hidden");
+    if (app) app.classList.remove("hidden");
+}
+
+async function aguardarFirebaseAuth(timeoutMs = 10000) {
+    const inicio = Date.now();
+    while (!window.authEnv?.auth) {
+        if (Date.now() - inicio > timeoutMs) {
+            throw new Error("O serviço de autenticação ainda não carregou. Atualize a página e tente novamente.");
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return window.authEnv;
+}
+
+function voltarTelaAutenticacao() {
+    fluxoCadastroAtivo = false;
+    fluxoVerificacaoAposCadastro = false;
+    aguardandoSetupCadastro = false;
+    setupUidPendente = null;
+    sessionStorage.removeItem("auroraCadastroPendenteSetup");
+    sessionStorage.removeItem("auroraSetupUidPendente");
+    sessionStorage.removeItem("auroraAguardandoVerificacao");
+    document.getElementById("pagina-setup-cadastro")?.classList.add("hidden");
+    document.getElementById("pagina-verificacao-email")?.classList.add("hidden");
+    document.getElementById("app-container")?.classList.add("hidden");
+    document.getElementById("tela-autenticacao")?.classList.remove("hidden");
+}
+
+async function enviarVerificacaoEmail(user) {
+    if (!user) throw new Error("Usuário autenticado não encontrado.");
+
+    await window.authEnv.sendEmailVerification(user);
+    abrirTelaVerificacaoEmail(user.email || "seu e-mail");
+}
+
+async function confirmarVerificacaoEmail() {
+    const status = document.getElementById("verification-status");
+    const btn = document.getElementById("btn-confirmar-verificacao");
+
+    try {
+        await aguardarFirebaseAuth();
+        const user = window.authEnv.auth.currentUser;
+
+        if (!user) {
+            throw new Error("Sua sessão expirou. Entre novamente para continuar.");
+        }
+
+        if (btn) btn.disabled = true;
+        if (status) {
+            status.className = "verification-status";
+            status.textContent = "Verificando...";
+        }
+
+        await window.authEnv.reload(user);
+
+        if (!user.emailVerified) {
+            if (status) {
+                status.className = "verification-status erro";
+                status.textContent = "Ainda não identificamos a verificação. Abra o e-mail e clique no link antes de tentar novamente.";
+            }
+            return;
+        }
+
+        if (status) {
+            status.className = "verification-status sucesso";
+            status.textContent = "E-mail verificado com sucesso! Abrindo o Aurora...";
+        }
+
+        sessionStorage.removeItem("auroraAguardandoVerificacao");
+        fluxoVerificacaoAposCadastro = false;
+        await entrarNoAppAposLogin(user);
+
+    } catch (e) {
+        console.error("Aurora: erro ao confirmar verificação", e);
+        if (status) {
+            status.className = "verification-status erro";
+            status.textContent = e?.message || "Não foi possível confirmar a verificação.";
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function reenviarVerificacaoEmail() {
+    const status = document.getElementById("verification-status");
+    const btn = document.getElementById("btn-reenviar-verificacao");
+
+    try {
+        await aguardarFirebaseAuth();
+        const user = window.authEnv.auth.currentUser;
+        if (!user) throw new Error("Sua sessão expirou. Entre novamente para continuar.");
+
+        if (btn) btn.disabled = true;
+        await window.authEnv.sendEmailVerification(user);
+
+        if (status) {
+            status.className = "verification-status sucesso";
+            status.textContent = "Novo e-mail enviado. Confira sua caixa de entrada e a pasta de spam.";
+        }
+    } catch (e) {
+        console.error("Aurora: erro ao reenviar verificação", e);
+        if (status) {
+            status.className = "verification-status erro";
+            status.textContent = "Não foi possível reenviar agora: " + (e?.message || e);
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function redefinirSenhaAurora() {
+    await aguardarFirebaseAuth();
+    const campo = document.getElementById("auth-email");
+    const email = (campo?.value || "").trim().toLowerCase();
+    if (!email) { alert("Digite seu e-mail primeiro."); campo?.focus(); return; }
+    try {
+        await window.authEnv.sendPasswordResetEmail(window.authEnv.auth, email);
+        alert("Enviamos o link para redefinir sua senha. Confira seu e-mail e a pasta de spam.");
+    } catch (e) {
+        console.error(e);
+        alert("Não foi possível enviar a redefinição: " + (e?.message || e));
+    }
+}
+function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+
         let modoCadastro = false;
         let usuarioAtualId = null;
         let possuiFilhosCadastro = false;
         let aguardandoSetupCadastro = false;
         let setupUidPendente = null;
+        let fluxoVerificacaoAposCadastro = false;
+        let fluxoCadastroAtivo = false;
         let proprietarioDadosAtivosUid = null;
         let contasAuroraNoCelular = [];
         let contaAuroraAtivaUid = null;
@@ -1165,69 +1418,231 @@
         }
 
         async function concluirSetupCadastro() {
-            if (!setupUidPendente) return;
-            const qtdFilhos = possuiFilhosCadastro ? (parseInt(document.getElementById('setup-qtd-filhos')?.value || '0', 10) || 0) : 0;
-            const categoriasIniciais = JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
+    if (!setupUidPendente) {
+        alert("Não foi possível identificar sua conta. Faça o cadastro novamente.");
+        return;
+    }
 
-            if (possuiFilhosCadastro && qtdFilhos > 0) {
-                categoriasIniciais.push({
-                    id: 'filhos',
-                    nome: qtdFilhos === 1 ? 'Filho/a' : 'Filhos/as',
-                    descricao: 'Escola, transporte, alimentação, saúde, lazer e outras despesas relacionadas aos filhos.',
-                    tipo: 'saida'
-                });
-            }
+    if (possuiFilhosCadastro === null) {
+        alert('Escolha Sim ou Não em “Você possui filhos?” antes de continuar.');
+        return;
+    }
 
-            appState = {
-                ...appState,
-                anoCorrente: '2026',
-                contasFilhos: [],
-                possuiFilhos: possuiFilhosCadastro,
-                qtdFilhos,
-                categoriasCustom: categoriasIniciais,
-                categoriasPorPerfil: { Principal: categoriasIniciais },
-                emailConta: document.getElementById('auth-email').value.trim().toLowerCase(),
-                criadoEm: new Date().toISOString()
+    const botao = document.querySelector('#pagina-setup-cadastro .btn-blue');
+    try {
+        if (botao) {
+            botao.disabled = true;
+            botao.textContent = 'Salvando...';
+        }
+
+        const qtdFilhos = possuiFilhosCadastro
+            ? (parseInt(document.getElementById('setup-qtd-filhos')?.value || '0', 10) || 0)
+            : 0;
+
+        const categoriasIniciais = JSON.parse(JSON.stringify(CATEGORIAS_PADRAO));
+
+        if (possuiFilhosCadastro && qtdFilhos > 0) {
+            categoriasIniciais.push({
+                id: 'filhos',
+                nome: qtdFilhos === 1 ? 'Filho/a' : 'Filhos/as',
+                descricao: 'Escola, transporte, alimentação, saúde, lazer e outras despesas relacionadas aos filhos.',
+                tipo: 'saida'
+            });
+        }
+
+        const user = window.authEnv?.auth?.currentUser;
+        if (!user || user.uid !== setupUidPendente) {
+            throw new Error('A sessão da conta não está disponível. Entre novamente para continuar.');
+        }
+
+        // Garante que o UID correto seja usado pelo Firestore durante o primeiro salvamento.
+        usuarioAtualId = user.uid;
+        proprietarioDadosAtivosUid = user.uid;
+        contaAuroraAtivaUid = user.uid;
+        contaPrincipalMeta = {
+            uid: user.uid,
+            email: user.email || '',
+            nome: 'Conta principal',
+            tipo: 'principal'
+        };
+
+        appState = {
+            ...appState,
+            anoCorrente: '2026',
+            contasFilhos: [],
+            possuiFilhos: possuiFilhosCadastro,
+            qtdFilhos,
+            categoriasCustom: categoriasIniciais,
+            categoriasPorPerfil: { Principal: categoriasIniciais },
+            emailConta: user.email || document.getElementById('auth-email')?.value.trim().toLowerCase() || '',
+            criadoEm: appState.criadoEm || new Date().toISOString()
+        };
+
+        const salvo = await salvarDadosNoCloud(true);
+        if (!salvo) {
+            throw new Error('O Firestore não confirmou o salvamento da configuração inicial. Verifique as regras de acesso do Firestore.');
+        }
+
+        // A configuração só é concluída depois de o documento ser salvo.
+        aguardandoSetupCadastro = false;
+        setupUidPendente = user.uid;
+        sessionStorage.removeItem('auroraCadastroPendenteSetup');
+        sessionStorage.setItem('auroraSetupUidPendente', user.uid);
+
+        // Envia a verificação somente depois de salvar a configuração.
+        await enviarVerificacaoEmail(user);
+
+    } catch (e) {
+        console.error('Aurora: erro na configuração inicial', e);
+        alert('Não foi possível concluir a configuração inicial.\n\nDetalhe: ' + (e?.message || e));
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = TRADUCOES[appState.idiomaCorrente || 'pt']?.btnConcluirSetup || 'Concluir Configuração';
+        }
+    }
+}
+
+async function executarAutenticacao() {
+    try {
+        await aguardarFirebaseAuth();
+
+        const email = document.getElementById("auth-email")?.value.trim().toLowerCase();
+        const password = document.getElementById("auth-password")?.value || "";
+
+        if (!email || !password) {
+            alert("Preencha o e-mail e a senha.");
+            return;
+        }
+
+        if (modoCadastro) {
+            sessionStorage.removeItem("auroraCadastroPendenteSetup");
+            sessionStorage.removeItem("auroraSetupUidPendente");
+            sessionStorage.removeItem("auroraAguardandoVerificacao");
+
+            fluxoCadastroAtivo = true;
+            fluxoVerificacaoAposCadastro = false;
+
+            const credencial = await window.authEnv.criarUsuario(
+                window.authEnv.auth,
+                email,
+                password
+            );
+
+            const user = credencial.user;
+
+            // createUserWithEmailAndPassword já autentica o usuário.
+            usuarioAtualId = user.uid;
+            proprietarioDadosAtivosUid = user.uid;
+            contaAuroraAtivaUid = user.uid;
+            contaPrincipalMeta = {
+                uid: user.uid,
+                email: user.email || email,
+                nome: 'Conta principal',
+                tipo: 'principal'
             };
 
-            try {
-                await window.authEnv.setDoc(window.authEnv.doc(window.authEnv.db, 'usuarios', setupUidPendente), appState);
-                aguardandoSetupCadastro = false;
-                setupUidPendente = null;
-                possuiFilhosCadastro = false;
-                document.getElementById('pagina-setup-cadastro').classList.add('hidden');
-                document.getElementById('app-container').classList.remove('hidden');
-                normalizarEstadoFinanceiro();
-                aplicarTemaVisual();
-                aplicarIdiomaTextos();
-                atualizarSelectPerfis();
-                atualizarListaContasAurora();
-                inicializarSelectAnos();
-                renderizarMesesBotoes();
-                abrirAppPrincipal();
-            } catch (e) {
-                alert('Não foi possível salvar a configuração inicial: ' + e.message);
-            }
+            sessionStorage.setItem("auroraCadastroPendenteSetup", "1");
+            sessionStorage.setItem("auroraSetupUidPendente", user.uid);
+
+            abrirConfiguracaoInicialCadastro(user.uid);
+            return;
         }
 
-        async function executarAutenticacao() {
-            const email = document.getElementById('auth-email').value.trim().toLowerCase();
-            const password = document.getElementById('auth-password').value;
-            if (!email || !password) return alert('Preencha os campos!');
-            try {
-                if (modoCadastro) {
-                    const credencial = await window.authEnv.criarUsuario(window.authEnv.auth, email, password);
-                    setupUidPendente = credencial.user.uid;
-                    aguardandoSetupCadastro = true;
-                    document.getElementById('tela-autenticacao').classList.add('hidden');
-                    document.getElementById('pagina-setup-cadastro').classList.remove('hidden');
-                    definirPossuiFilhosSetup(false);
-                } else {
-                    await window.authEnv.fazerLogin(window.authEnv.auth, email, password);
-                }
-            } catch (e) { alert('Erro: ' + e.message); }
+        // LOGIN EXISTENTE
+        fluxoCadastroAtivo = false;
+        fluxoVerificacaoAposCadastro = false;
+
+        const credencial = await window.authEnv.fazerLogin(
+            window.authEnv.auth,
+            email,
+            password
+        );
+
+        const user = credencial.user;
+        usuarioAtualId = user.uid;
+        proprietarioDadosAtivosUid = user.uid;
+        contaAuroraAtivaUid = user.uid;
+
+        const pendenteUid = sessionStorage.getItem("auroraSetupUidPendente");
+        if (pendenteUid && pendenteUid !== user.uid) {
+            sessionStorage.removeItem("auroraCadastroPendenteSetup");
+            sessionStorage.removeItem("auroraSetupUidPendente");
+            sessionStorage.removeItem("auroraAguardandoVerificacao");
+        }
+
+        const pendenteSetup =
+            sessionStorage.getItem("auroraCadastroPendenteSetup") === "1" &&
+            sessionStorage.getItem("auroraSetupUidPendente") === user.uid;
+
+        if (pendenteSetup) {
+            fluxoCadastroAtivo = true;
+            abrirConfiguracaoInicialCadastro(user.uid);
+            return;
+        }
+
+        const aguardandoVerificacao =
+            sessionStorage.getItem("auroraAguardandoVerificacao") === "1" &&
+            sessionStorage.getItem("auroraSetupUidPendente") === user.uid;
+
+        if (aguardandoVerificacao || !user.emailVerified) {
+            setupUidPendente = user.uid;
+            abrirTelaVerificacaoEmail(user.email || email);
+            return;
+        }
+
+        await entrarNoAppAposLogin(user);
+
+    } catch (e) {
+        console.error("Aurora Authentication:", e);
+
+        const mensagens = {
+            "auth/email-already-in-use": "Este e-mail já possui uma conta. Tente entrar.",
+            "auth/invalid-email": "Digite um e-mail válido.",
+            "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+            "auth/invalid-credential": "E-mail ou senha incorretos.",
+            "auth/user-not-found": "Não encontramos uma conta com esse e-mail.",
+            "auth/wrong-password": "Senha incorreta.",
+            "auth/too-many-requests": "Muitas tentativas. Aguarde um pouco.",
+            "auth/operation-not-allowed": "O login por e-mail e senha não está habilitado no Firebase Authentication."
+        };
+
+        alert(mensagens[e?.code] || ("Erro: " + (e?.message || e)));
+    }
+}
+
+async function entrarNoAppAposLogin(user) {
+            usuarioAtualId = user.uid;
+            proprietarioDadosAtivosUid = user.uid;
+            contaAuroraAtivaUid = user.uid;
+            contaPrincipalMeta = { uid: user.uid, email: user.email || '', nome: 'Conta principal', tipo: 'principal' };
+            document.getElementById('tela-autenticacao')?.classList.add('hidden');
+                        document.getElementById('pagina-setup-cadastro')?.classList.add('hidden');
+            document.getElementById('app-container')?.classList.remove('hidden');
+
+            const docRef = window.authEnv.doc(window.authEnv.db, 'usuarios', user.uid);
+            const docSnap = await window.authEnv.getDoc(docRef);
+            if (docSnap.exists()) appState = { ...appState, ...docSnap.data() };
+            else { appState = { ...appState, emailConta: user.email || '' }; await salvarDadosNoCloud(); }
+            normalizarEstadoFinanceiro();
+            if(!appState.perfisCadastrados) appState.perfisCadastrados = ['Principal'];
+            if(!appState.perfilCorrente || !appState.perfisCadastrados.includes(appState.perfilCorrente)) appState.perfilCorrente = 'Principal';
+            if(!appState.temaCorrente) appState.temaCorrente = 'escuro';
+            if(!appState.idiomaCorrente) appState.idiomaCorrente = 'pt';
+            garantirCategoriasDoPerfil(appState.perfilCorrente);
+            aplicarTemaVisual();
+            aplicarIdiomaTextos();
+            atualizarSelectPerfis();
+            atualizarListaContasAurora();
+            inicializarSelectAnos();
+            renderizarMesesBotoes();
+            abrirAppPrincipal();
         }
         document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('pagina-setup-cadastro')?.classList.add('hidden');
+            document.getElementById('pagina-verificacao-email')?.classList.add('hidden');
+            document.getElementById('app-container')?.classList.add('hidden');
+            document.getElementById('tela-autenticacao')?.classList.remove('hidden');
             document.getElementById('mov-data').valueAsDate = new Date();
             // Se uma conta alternativa já estava conectada neste navegador, o Firebase a restaura automaticamente.
             if (window.authEnv?.authContaAlternativa) {
@@ -1248,51 +1663,57 @@
             const verificarAuth = setInterval(() => {
                 if (window.authEnv && window.authEnv.auth) {
                     clearInterval(verificarAuth);
+
                     window.authEnv.auth.onAuthStateChanged(async (user) => {
-                        if (user) {
-                            if (aguardandoSetupCadastro && setupUidPendente === user.uid) {
-                                usuarioAtualId = user.uid;
-                                proprietarioDadosAtivosUid = user.uid;
-                                contaAuroraAtivaUid = user.uid;
-                                return;
+                        if (!user) {
+                            document.getElementById("app-container")?.classList.add("hidden");
+                            document.getElementById("pagina-setup-cadastro")?.classList.add("hidden");
+                            document.getElementById("tela-autenticacao")?.classList.remove("hidden");
+                            return;
+                        }
+
+                        // Cadastro novo: o createUserWithEmailAndPassword() já faz login
+                        // automaticamente. O listener do Firebase pode disparar ANTES de
+                        // executarAutenticacao() conseguir gravar o UID no sessionStorage.
+                        // Por isso, enquanto o fluxo de cadastro estiver ativo, nunca abrimos
+                        // o app aqui; o próprio fluxo de cadastro abrirá a tela de filhos.
+                        const pendente = sessionStorage.getItem("auroraCadastroPendenteSetup") === "1";
+                        const pendenteUid = sessionStorage.getItem("auroraSetupUidPendente");
+                        if (fluxoCadastroAtivo) {
+                            if (pendenteUid === user.uid) {
+                                abrirConfiguracaoInicialCadastro(user.uid);
                             }
+                            return;
+                        }
+                        if (pendente && pendenteUid === user.uid) {
+                            abrirConfiguracaoInicialCadastro(user.uid);
+                            return;
+                        }
+
+                        // Se o cadastro terminou, mas o e-mail ainda não foi verificado,
+                        // mantém o usuário na tela de verificação.
+                        const aguardandoVerificacao =
+                            sessionStorage.getItem("auroraAguardandoVerificacao") === "1" &&
+                            sessionStorage.getItem("auroraSetupUidPendente") === user.uid;
+
+                        if (aguardandoVerificacao || !user.emailVerified) {
                             usuarioAtualId = user.uid;
                             proprietarioDadosAtivosUid = user.uid;
                             contaAuroraAtivaUid = user.uid;
-                            contaPrincipalMeta = { uid: user.uid, email: user.email || '', nome: 'Conta principal', tipo: 'principal' };
-                            document.getElementById('tela-autenticacao').classList.add('hidden');
-                            document.getElementById('app-container').classList.remove('hidden');
-
-                            const docRef = window.authEnv.doc(window.authEnv.db, "usuarios", usuarioAtualId);
-                            const docSnap = await window.authEnv.getDoc(docRef);
-
-                            if (docSnap.exists()) {
-                                appState = { ...appState, ...docSnap.data() };
-                            } else {
-                                appState = { ...appState, emailConta: user.email || '' };
-                                await salvarDadosNoCloud();
-                            }
-                            normalizarEstadoFinanceiro();
-                            if(!appState.perfisCadastrados) appState.perfisCadastrados = ["Principal"];
-                            if(!appState.perfilCorrente || !appState.perfisCadastrados.includes(appState.perfilCorrente)) appState.perfilCorrente = "Principal";
-                            if(!appState.temaCorrente) appState.temaCorrente = "escuro";
-                            if(!appState.idiomaCorrente) appState.idiomaCorrente = "pt";
-                            garantirCategoriasDoPerfil(appState.perfilCorrente);
-                            aplicarTemaVisual();
-                            aplicarIdiomaTextos();
-                            atualizarSelectPerfis();
-                            atualizarListaContasAurora();
-                            inicializarSelectAnos();
-                            renderizarMesesBotoes();
-                            abrirAppPrincipal();
-                        } else {
-                            document.getElementById('app-container').classList.add('hidden');
-                            document.getElementById('tela-autenticacao').classList.remove('hidden');
+                            setupUidPendente = user.uid;
+                            abrirTelaVerificacaoEmail(user.email || "seu e-mail");
+                            return;
                         }
+
+                        // Login normal: entra no app somente depois da verificação.
+                        if (usuarioAtualId === user.uid && !document.getElementById("app-container")?.classList.contains("hidden")) {
+                            return;
+                        }
+
+                        await entrarNoAppAposLogin(user);
                     });
                 }
-            }, 500);
-
+            }, 100);
             // Carrega cotações do BACEN ao iniciar
             atualizarCotacoesDoBacen();
         });
@@ -1550,7 +1971,8 @@
         }
 
         function abrirAppPrincipal() {
-            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('pagina-setup-cadastro')?.classList.add('hidden');
+                liberarAposConfiguracaoInicial();
             document.getElementById('cfg-moeda').value = appState.moedaCorrente;
             document.getElementById('cfg-ano').value = appState.anoCorrente;
             document.getElementById('cfg-tema').value = appState.temaCorrente;
@@ -2215,16 +2637,42 @@
             });
         }
 
-        async function salvarDadosNoCloud() {
+        async function salvarDadosNoCloud(mostrarErro = false) {
             const uidDestino = proprietarioDadosAtivosUid || usuarioAtualId;
-            if (uidDestino && window.authEnv) {
-                try {
-                    const dbAlvo = obterDbDaConta(uidDestino);
-                    await window.authEnv.setDoc(window.authEnv.doc(dbAlvo, "usuarios", uidDestino), appState);
-                } catch (e) {
-                    console.error(e);
-                    alert("Não foi possível salvar os dados desta conta. Verifique as regras de acesso do Firestore.");
+
+            if (!uidDestino || !window.authEnv) {
+                console.error("Aurora: UID ou Firebase indisponível", {
+                    uidDestino,
+                    usuarioAtualId,
+                    proprietarioDadosAtivosUid
+                });
+                return false;
+            }
+
+            try {
+                const dbAlvo = obterDbDaConta(uidDestino);
+                if (!dbAlvo) throw new Error("Banco de dados da conta não foi inicializado.");
+
+                const referencia = window.authEnv.doc(dbAlvo, "usuarios", uidDestino);
+
+                await window.authEnv.setDoc(referencia, appState);
+
+                // Confirmação real: lê o documento logo após o setDoc.
+                const confirmacao = await window.authEnv.getDoc(referencia);
+                if (!confirmacao.exists()) {
+                    throw new Error("O Firestore não confirmou a existência do documento salvo.");
                 }
+
+                return true;
+            } catch (e) {
+                console.error("Aurora: erro ao salvar", e);
+                if (mostrarErro) {
+                    alert(
+                        "Não foi possível salvar os dados desta conta. Verifique as regras de acesso do Firestore." +
+                        "\n\nDetalhe: " + (e?.message || e)
+                    );
+                }
+                return false;
             }
         }
 
@@ -2303,6 +2751,9 @@
             contaPrincipalMeta = null;
             contasAuroraMeta.clear();
             contasAuroraNoCelular = [];
+            sessionStorage.removeItem("auroraCadastroPendenteSetup");
+            sessionStorage.removeItem("auroraSetupUidPendente");
+            sessionStorage.removeItem("auroraAguardandoVerificacao");
             appState = {
                 anoCorrente: "2026",
                 mesCorrente: new Date().getMonth(),
@@ -2326,6 +2777,7 @@
                 if (window.authEnv.authContaAlternativa) window.authEnv.signOut(window.authEnv.authContaAlternativa);
             }
         }
-    </script>
+    
+</script>
 </body>
 </html>
